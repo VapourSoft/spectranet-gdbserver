@@ -16,33 +16,7 @@ uint8_t server_init(void)
 {
     dart_init();
     #ifdef TARGET_PCW_DART
-        #ifdef DEBUG
-        {
-            static const char hd[] = "0123456789abcdef";
-            unsigned char *v = (unsigned char*)0x0008;
-            dart_putc('B'); // before 0008 bytes
-            for (int i=0;i<3;i++) { unsigned char b=v[i]; dart_putc(hd[b>>4]); dart_putc(hd[b&0xF]); }
-            // Show rst8_install function address bytes
-            extern void rst8_install(void);
-            unsigned char *fp = (unsigned char*)rst8_install;
-            dart_putc('P');
-            for (int i=0;i<3;i++) { unsigned char b=fp[i]; dart_putc(hd[b>>4]); dart_putc(hd[b&0xF]); }
-            // Call it with explicit marker chars
-            dart_putc('C');
-            rst8_install();
-            dart_putc('c');
-            // After call: read bytes again
-            v = (unsigned char*)0x0008;
-            dart_putc('A');
-            for (int i=0;i<3;i++) { unsigned char b=v[i]; dart_putc(hd[b>>4]); dart_putc(hd[b&0xF]); }
-            // Flag
-            extern unsigned char rst8_called;
-            unsigned char f = rst8_called;
-            dart_putc('F'); dart_putc(hd[f>>4]); dart_putc(hd[f&0xF]);
-        }
-        #else
-            rst8_install();
-        #endif
+    rst8_install();
     #endif
     gdbserver_state.server_socket = 1;
     return 0;
@@ -123,6 +97,16 @@ static uint8_t process_packet()
     char command = *payload++;
     switch (command)
     {
+        case '!':
+        {
+            // Test trap trigger: execute RST 08 directly
+            __asm__("rst 0x08");
+            // Trap handler set registers & flag; reply with stop reason immediately
+            server_write_packet("T05");
+            // Clear flag so loop doesn't send again
+            gdbserver_state.trap_flags &= (uint8_t)~TRAP_FLAG_BREAK_HIT;
+            return 1;
+        }
         case 'c':
         {
             // continue execution

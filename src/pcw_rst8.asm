@@ -4,7 +4,6 @@
     PUBLIC _rst8_install
     PUBLIC _rst8_restore
     PUBLIC rst8_entry
-    PUBLIC _rst8_called
 
     EXTERN _rst8_c_trap
     EXTERN _rst8_sp_copy
@@ -16,8 +15,6 @@ orig_rst8_bytes:
     defs 8              ; storage for original 8 bytes at 0008h
 _rst8_sp_copy:
     defs 2              ; space for saved SP
-_rst8_called:
-    defs 1              ; flag: 0 before install, set to 1 by _rst8_install
 
     SECTION code_user
 
@@ -31,18 +28,6 @@ _rst8_install:
     ld (0x0008),a
     ld hl,rst8_entry
     ld (0x0009),hl
-    ld a,1
-    ld (_rst8_called),a ; mark called
-    ; Debug side-effect: output 'I' over serial (dart_putc) to prove we executed.
-    push af
-    push bc
-    ld a,'I'
-    ld c,a               ; pass in L? depends on calling conv; easiest: push then call
-    push af               ; push char parameter (sdcc_iy convention passes first via stack)
-    call _dart_putc
-    pop af
-    pop bc
-    pop af
     ret
 
 ; Restore original bytes

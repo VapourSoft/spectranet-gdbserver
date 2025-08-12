@@ -19,17 +19,20 @@ extern uint16_t rst8_sp_copy; // storage in pcw_rst8.asm
 */
 void rst8_c_trap(void)
 {
-  uint16_t *frame = (uint16_t*)rst8_sp_copy;
+  // Stack layout after pushes (SP_new = rst8_sp_copy - 12):
+  // [0] IY, [1] IX, [2] HL, [3] DE, [4] BC, [5] AF, [6] ret_addr
+  uint16_t *base = (uint16_t*)(rst8_sp_copy - 12);
+  uint16_t ret_addr = base[6];
 
-    uint16_t ret_addr = frame[6];
-    uint16_t user_sp  = (uint16_t)(&frame[7]); // SP before our pushes
+  // User SP before our pushes = (SP_new + 12) = rst8_sp_copy
+  uint16_t user_sp = rst8_sp_copy;
 
-    gdbserver_state.registers[REGISTERS_PC] = (uint16_t)(ret_addr - 1);
-    gdbserver_state.registers[REGISTERS_SP] = user_sp;
-    gdbserver_state.registers[REGISTERS_HL] = frame[2];
-    gdbserver_state.registers[REGISTERS_DE] = frame[3];
-    gdbserver_state.registers[REGISTERS_BC] = frame[4];
-    gdbserver_state.registers[REGISTERS_AF] = frame[5];
+  gdbserver_state.registers[REGISTERS_PC] = (uint16_t)(ret_addr - 1); // address of breakpoint instr (RST 08)
+  gdbserver_state.registers[REGISTERS_SP] = user_sp;                  // SP at trap (points to ret_addr)
+  gdbserver_state.registers[REGISTERS_HL] = base[2];
+  gdbserver_state.registers[REGISTERS_DE] = base[3];
+  gdbserver_state.registers[REGISTERS_BC] = base[4];
+  gdbserver_state.registers[REGISTERS_AF] = base[5];
 
-    gdbserver_state.trap_flags |= TRAP_FLAG_BREAK_HIT;
+  gdbserver_state.trap_flags |= TRAP_FLAG_BREAK_HIT;
 }
