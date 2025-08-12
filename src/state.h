@@ -4,14 +4,16 @@
 #include <stdint.h>
 
 #define MAX_BREAKPOINTS_COUNT (8)
-#define REGISTERS_COUNT (6)
-
+// Order must match XML feature description
 #define REGISTERS_SP (0)
 #define REGISTERS_PC (1)
 #define REGISTERS_HL (2)
 #define REGISTERS_DE (3)
 #define REGISTERS_BC (4)
 #define REGISTERS_AF (5)
+#define REGISTERS_IX (6)
+#define REGISTERS_IY (7)
+#define REGISTERS_COUNT (8)
 
 struct breakpoint_t {
     uint16_t address;
@@ -25,7 +27,7 @@ struct breakpoint_t {
 struct gdbserver_state_t
 {
     // Offset: 0
-    uint16_t registers[REGISTERS_COUNT]; /* sp, pc, hl, de, bc, af */
+    uint16_t registers[REGISTERS_COUNT]; /* sp, pc, hl, de, bc, af, ix, iy */
     // Offset: 12
     uint8_t rst8_handler[80];
     // Offset: 92

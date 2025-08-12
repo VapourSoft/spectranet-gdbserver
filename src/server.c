@@ -150,7 +150,9 @@ static uint8_t process_packet()
                     "<reg name=\"de\" bitsize=\"16\" type=\"int\"/>"
                     "<reg name=\"bc\" bitsize=\"16\" type=\"int\"/>"
                     "<reg name=\"af\" bitsize=\"16\" type=\"int\"/>"
-                    "</feature><architecture>z80</architecture></target>#ba");
+                    "<reg name=\"ix\" bitsize=\"16\" type=\"int\"/>"
+                    "<reg name=\"iy\" bitsize=\"16\" type=\"int\"/>"
+                    "</feature><architecture>z80</architecture></target>#2f");
                 return 1;
             }
 

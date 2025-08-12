@@ -19,8 +19,11 @@ extern uint16_t rst8_sp_copy; // storage in pcw_rst8.asm
 */
 void rst8_c_trap(void)
 {
-  // Stack layout after pushes (SP_new = rst8_sp_copy - 12):
-  // [0] IY, [1] IX, [2] HL, [3] DE, [4] BC, [5] AF, [6] ret_addr
+  // Stack layout after pushes (each push 2 bytes):
+  // push af, bc, de, hl, ix, iy  (last pushed at lowest address)
+  // Memory ascending: IY, IX, HL, DE, BC, AF, ret_addr
+  // Total pushed: 12 bytes registers + 2 ret = 14?  Actually ret was on stack before pushes.
+  // After pushes SP_new = original_SP - 12. rst8_sp_copy holds original SP (before pushes).
   uint16_t *base = (uint16_t*)(rst8_sp_copy - 12);
   uint16_t ret_addr = base[6];
 
@@ -33,6 +36,8 @@ void rst8_c_trap(void)
   gdbserver_state.registers[REGISTERS_DE] = base[3];
   gdbserver_state.registers[REGISTERS_BC] = base[4];
   gdbserver_state.registers[REGISTERS_AF] = base[5];
+  gdbserver_state.registers[REGISTERS_IX] = base[1];
+  gdbserver_state.registers[REGISTERS_IY] = base[0];
 
   gdbserver_state.trap_flags |= TRAP_FLAG_BREAK_HIT;
 }
