@@ -3,16 +3,48 @@
 #include "utils.h"
 #include "state.h"
 #include "pcw_dart.h"
+#include "pcw_rst8.h"
+
+#ifdef TARGET_PCW_DART
+#endif
 
 #include <string.h>
 #include <stddef.h>
 #include <stdio.h>
 
-uint8_t server_init()
+uint8_t server_init(void)
 {
-    // Initialize the PCW DART serial port
     dart_init();
-    gdbserver_state.server_socket = 1; // mark as initialized
+    #ifdef TARGET_PCW_DART
+        #ifdef DEBUG
+        {
+            static const char hd[] = "0123456789abcdef";
+            unsigned char *v = (unsigned char*)0x0008;
+            dart_putc('B'); // before 0008 bytes
+            for (int i=0;i<3;i++) { unsigned char b=v[i]; dart_putc(hd[b>>4]); dart_putc(hd[b&0xF]); }
+            // Show rst8_install function address bytes
+            extern void rst8_install(void);
+            unsigned char *fp = (unsigned char*)rst8_install;
+            dart_putc('P');
+            for (int i=0;i<3;i++) { unsigned char b=fp[i]; dart_putc(hd[b>>4]); dart_putc(hd[b&0xF]); }
+            // Call it with explicit marker chars
+            dart_putc('C');
+            rst8_install();
+            dart_putc('c');
+            // After call: read bytes again
+            v = (unsigned char*)0x0008;
+            dart_putc('A');
+            for (int i=0;i<3;i++) { unsigned char b=v[i]; dart_putc(hd[b>>4]); dart_putc(hd[b&0xF]); }
+            // Flag
+            extern unsigned char rst8_called;
+            unsigned char f = rst8_called;
+            dart_putc('F'); dart_putc(hd[f>>4]); dart_putc(hd[f&0xF]);
+        }
+        #else
+            rst8_install();
+        #endif
+    #endif
+    gdbserver_state.server_socket = 1;
     return 0;
 }
 
@@ -69,7 +101,8 @@ static const struct {
     const char* request;
     const char* response;
 } queries[] = {
-    {"Supported",               "PacketSize=128;NonBreakable;qXfer:features:read+;qXfer:auxv:read+"},
+    //{"Supported",               "PacketSize=128;NonBreakable;qXfer:features:read+;qXfer:auxv:read+"},
+    {"Supported",               "PacketSize=128;qXfer:features:read+;qXfer:auxv:read+"},
     {NULL,                      NULL},
 };
 
@@ -349,8 +382,9 @@ uint8_t server_read_data()
                     if (checksum_value == sent_checksum)
                     {
                         #ifdef DEBUG
-                        printf("\nOUT> ");
+                            printf("\nOUT> ");
                         #endif
+                        dart_putc('+');              // ACK host packet                        
                         return process_packet();
                     }
                     else

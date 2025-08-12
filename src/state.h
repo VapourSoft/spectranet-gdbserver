@@ -52,6 +52,7 @@ struct gdbserver_state_t
 
 #define TRAP_FLAG_RESTORE_RST08H (0x01)
 #define TRAP_FLAG_STEP_INSTRUCTION (0x02)
+#define TRAP_FLAG_BREAK_HIT (0x04)
 
 extern struct gdbserver_state_t gdbserver_state;
 

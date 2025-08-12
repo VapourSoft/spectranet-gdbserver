@@ -1,5 +1,5 @@
 ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
-GDBSERVER_C_SOURCES=$(wildcard src/*.c)
+GDBSERVER_C_SOURCES=$(filter-out src/pcw_dart.c,$(wildcard src/*.c))
 GDBSERVER_C_OBJECTS=$(GDBSERVER_C_SOURCES:.c=_c.o)
 GDBSERVER_ASM_SOURCES=$(wildcard src/*.asm)
 GDBSERVER_ASM_OBJECTS=$(GDBSERVER_ASM_SOURCES:.asm=_asm.o)
@@ -26,6 +26,15 @@ else
 endif
 
 all: gdbserver
+
+# CP/M serial build (PCW DART) using sdcc_ix
+.PHONY: cpm
+cpm:
+	zcc +cpm -compiler=sdcc -clib=sdcc_ix -SO3 -vn -O2 \
+	  -DTARGET_PCW_DART $(CPM_EXTRA) \
+	  src/pcw_rst8.asm src/pcw_rst8.c src/pcw_dart.c \
+	  src/state.c src/utils.c src/server.c src/cpm_stubs.c src/cpm_main.c \
+	  -o ZDBG -create-app
 
 build/gdbserver: $(GDBSERVER_C_OBJECTS) $(GDBSERVER_ASM_OBJECTS)
 	$(LD) $(LDFLAGS) $(BIN_FLAGS) -o build/gdbserver $(GDBSERVER_FLAGS) $(GDBSERVER_C_OBJECTS) $(GDBSERVER_ASM_OBJECTS)
