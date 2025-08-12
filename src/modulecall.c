@@ -1,16 +1,17 @@
 #include "server.h"
-#include <arch/zx/spectrum.h>
 #include "utils.h"
 #include "state.h"
-#include "sockpoll.h"
+#include "pcw_dart.h"
+#include <stddef.h>
+
+#ifndef POLLIN
+#define POLLIN 1
+#endif
 
 extern void gdbserver_trap();
 
 void modulecall()
 {
-    zx_border(INK_BLUE);
-    zx_colour(INK_WHITE | PAPER_BLUE);
-
     clear42();
     print42("gdbserver by @desertkun\n");
 
@@ -73,13 +74,9 @@ void modulecall()
 
     while (1)
     {
-        switch (poll_fd(gdbserver_state.client_socket))
+    // Serial has no poll; emulate POLLIN when data arrives
+    switch (dart_rx_ready() ? POLLIN : 0)
         {
-            case POLLHUP:
-            {
-                server_on_disconnect();
-                continue;
-            }
             case POLLIN:
             {
                 if (server_read_data())
@@ -93,7 +90,8 @@ void modulecall()
             }
             default:
             {
-                continue;
+        // idle spin
+        continue;
             }
         }
     }

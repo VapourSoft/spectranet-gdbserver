@@ -1,0 +1,46 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "COPY to test (B:)",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"copy /Y \"${workspaceFolder}\\ZDBG.COM\" \"C:\\Users\\shane\\Dev\\z80-stub\\test\\z.com\""
+			],
+			"dependsOn": [
+				"Build CP/M ZDBG (PCW DART)"
+			],
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared"
+			}
+		},
+		{
+			"label": "joyce: run (With build)",
+			"type": "shell",
+			"command": "\"S:\\Retro\\PCW\\Emulators\\Joyce\\xjoyce.exe\" -A \"S:\\Retro\\PCW\\Emulators\\Joyce\\Joyce\\Boot\\boot-zdbg-no_auto.dsk\" -m 512",
+			"dependsOn": [
+				"COPY to test (B:)"
+			]
+		},
+		{
+			"label": "joyce: run (NO build)",
+			"type": "shell",
+			"command": "\"S:\\Retro\\PCW\\Emulators\\Joyce\\xjoyce.exe\" -A \"S:\\Retro\\PCW\\Emulators\\Joyce\\Joyce\\Boot\\boot-zdbg-no_auto.dsk\" -m 512"
+		},
+		{
+			"label": "Build CP/M ZDBG (PCW DART)",
+			"type": "shell",
+			"command": "C:/msys64/usr/bin/bash.exe",
+			"args": [
+				"-lc",
+				"export PATH=\"/c/z88dk/bin:$PATH\"; cd /c/Users/shane/Dev/spectranet-gdbserver; make cpm CFLAGS='-DDEBUG'"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
+}

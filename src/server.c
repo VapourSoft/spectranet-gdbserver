@@ -1,46 +1,35 @@
+// Serial-backed GDB server (PCW DART)
 #include "server.h"
-#include "sys/socket.h"
-#include "sockpoll.h"
 #include "utils.h"
 #include "state.h"
+#include "pcw_dart.h"
 
 #include <string.h>
+#include <stddef.h>
+#include <stdio.h>
 
 uint8_t server_init()
 {
-    if (gdbserver_state.server_socket)
-    {
-        return 0;
-    }
-
-    gdbserver_state.server_socket = socket(AF_INET, SOCK_STREAM, 0);
-    if (gdbserver_state.server_socket < 0)
-    {
-        return 1;
-    }
-
-    struct sockaddr_in address;
-    address.sin_family = AF_INET;
-    address.sin_port = htons(1667);
-    if (bind(gdbserver_state.server_socket, &address, sizeof(address)) < 0)
-    {
-        return 2;
-    }
-
+    // Initialize the PCW DART serial port
+    dart_init();
+    gdbserver_state.server_socket = 1; // mark as initialized
     return 0;
 }
 
-static void write_data_raw(const uint8_t *data, ssize_t len)
+static void write_data_raw(const uint8_t *data, uint16_t len)
 {
-    send(gdbserver_state.client_socket, (void*)data, len, 0);
+    // Send bytes over serial
+    for (uint16_t i = 0; i < len; ++i)
+        dart_putc(data[i]);
 }
 
 static void write_str_raw(const char *data)
 {
-    send(gdbserver_state.client_socket, (void*)data, strlen(data), 0);
+    while (*data)
+        dart_putc((uint8_t)*data++);
 }
 
-static void write_packet_bytes(const uint8_t *data, uint8_t num_bytes) __z88dk_callee
+static void write_packet_bytes(const uint8_t *data, uint8_t num_bytes)
 {
     size_t i;
 
@@ -59,37 +48,21 @@ static void write_packet_bytes(const uint8_t *data, uint8_t num_bytes) __z88dk_c
     write_data_raw(gdbserver_state.w_buffer, num_bytes + 4);
 }
 
-void server_write_packet(const char *data) __z88dk_fastcall
+void server_write_packet(const char *data)
 {
     write_packet_bytes((const uint8_t *)data, strlen(data));
 }
 
 uint8_t server_listen()
 {
-    if (listen(gdbserver_state.server_socket, 1) < 0)
-    {
-        return 1;
-    }
-
-    print42("waiting for connections...\n");
-
-    gdbserver_state.client_socket = accept(gdbserver_state.server_socket, NULL, NULL);
-    if(gdbserver_state.client_socket <= 0)
-    {
-        return 2;
-    }
-
-    print42("connected!\n");
-
+    // Serial has no concept of listen/accept; treat as always connected
+    gdbserver_state.client_socket = 1;
     return 0;
 }
 
 void server_on_disconnect()
 {
-    sockclose(gdbserver_state.client_socket);
-    gdbserver_state.client_socket = 0;
-    print42("client disconnected!\n");
-    server_listen();
+    // No-op for serial
 }
 
 static const struct {
@@ -100,12 +73,12 @@ static const struct {
     {NULL,                      NULL},
 };
 
-static void write_error() __z88dk_callee
+static void write_error()
 {
     server_write_packet("E01");
 }
 
-static void write_ok() __z88dk_callee
+static void write_ok()
 {
     server_write_packet("OK");
 }
@@ -318,22 +291,34 @@ error:
     return 1;
 }
 
+static inline char serial_getc_blocking(void)
+{
+    //while (!dart_rx_ready()) { }
+    wait_dart_rx_ready();
+    return (char)dart_getc();
+}
+
 uint8_t server_read_data()
 {
-    char in;
-    if (recv(gdbserver_state.client_socket, &in, 1, 0) <= 0)
-    {
-        return 1;
-    }
-
+    char in = serial_getc_blocking();
+    #ifdef DEBUG
+    if (in != '$') 
+        putchar((unsigned char)in);
+    #endif
     switch (in)
     {
         case '$':
         {
+            #ifdef DEBUG
+            printf("\nIN > $");
+            #endif
             uint8_t read_offset = 0;
             while(1)
             {
-                recv(gdbserver_state.client_socket, &in, 1, 0);
+                in = serial_getc_blocking();
+                #ifdef DEBUG
+                putchar((unsigned char)in);
+                #endif
                 if (in == '#')
                 {
                     gdbserver_state.buffer[read_offset] = 0;
@@ -343,7 +328,13 @@ uint8_t server_read_data()
 
                     {
                         char checksum[2];
-                        recv(gdbserver_state.client_socket, checksum, 2, 0);
+                        checksum[0] = serial_getc_blocking();
+                        checksum[1] = serial_getc_blocking();
+
+                        #ifdef DEBUG
+                        putchar((unsigned char)checksum[0]);
+                        putchar((unsigned char)checksum[1]);
+                        #endif
 
                         {
                             uint8_t* buff = gdbserver_state.buffer;
@@ -357,10 +348,16 @@ uint8_t server_read_data()
 
                     if (checksum_value == sent_checksum)
                     {
+                        #ifdef DEBUG
+                        printf("\nOUT> ");
+                        #endif
                         return process_packet();
                     }
                     else
                     {
+                        #ifdef DEBUG
+                        printf("\nERR> ");
+                        #endif
                         write_error();
                     }
 

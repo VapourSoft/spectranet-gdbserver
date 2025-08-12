@@ -46,6 +46,8 @@ struct gdbserver_state_t
     uint8_t w_buffer[128];
     struct breakpoint_t breakpoints[8];
     struct breakpoint_t temporary_breakpoint;
+    // Protocol flags (safe to append here; offsets above are the only critical ones)
+    uint8_t no_ack_mode; // when set, don't send/expect '+' acks
 };
 
 #define TRAP_FLAG_RESTORE_RST08H (0x01)

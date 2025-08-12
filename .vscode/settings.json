@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "*.zsm": "z80-macroasm",
+        "*.asm": "z80-macroasm",
+        "pcw_dart.h": "c",
+        "state.h": "c",
+        "stdio.h": "c"
+    },
+    "makefile.configureOnOpen": true
+}

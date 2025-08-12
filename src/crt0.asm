@@ -1,4 +1,3 @@
-include "../include/spectranet.inc"
 include "../include/sysvars.inc"
 
 global _gdbserver_state

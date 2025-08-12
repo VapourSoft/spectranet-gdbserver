@@ -1,4 +1,3 @@
-include "../include/spectranet.inc"
 include "../include/sysvars.inc"
 
 include "vars.inc"

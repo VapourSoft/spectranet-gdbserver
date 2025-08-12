@@ -1,7 +1,31 @@
 #include "utils.h"
-#include "string.h"
+#include <string.h>
 
-void from_hex(const char* in, uint8_t* out, uint8_t len) __z88dk_callee
+#ifdef TARGET_PCW_DART
+// C fallbacks for hex helpers when not using ZX assembly versions
+static uint8_t hex_nibble(char c) {
+    if (c >= '0' && c <= '9') return (uint8_t)(c - '0');
+    if (c >= 'A' && c <= 'F') return (uint8_t)(c - 'A' + 10);
+    if (c >= 'a' && c <= 'f') return (uint8_t)(c - 'a' + 10);
+    return 0;
+}
+
+uint8_t hex_to_char(const char* from)
+{
+    uint8_t hi = hex_nibble(from[0]);
+    uint8_t lo = hex_nibble(from[1]);
+    return (uint8_t)((hi << 4) | lo);
+}
+
+void char_to_hex(char* res, uint8_t c)
+{
+    static const char hex[] = "0123456789abcdef";
+    res[0] = hex[(c >> 4) & 0x0F];
+    res[1] = hex[c & 0x0F];
+}
+#endif
+
+void from_hex(const char* in, uint8_t* out, uint8_t len)
 {
     const char* end = in + len;
     while (in < end)
@@ -11,7 +35,7 @@ void from_hex(const char* in, uint8_t* out, uint8_t len) __z88dk_callee
     }
 }
 
-void to_hex(const uint8_t* in, char* out, uint8_t len) __z88dk_callee
+void to_hex(const uint8_t* in, char* out, uint8_t len)
 {
     while (len--)
     {
@@ -20,7 +44,7 @@ void to_hex(const uint8_t* in, char* out, uint8_t len) __z88dk_callee
     }
 }
 
-uint16_t from_hex_str(const char* in, uint8_t len) __z88dk_callee
+uint16_t from_hex_str(const char* in, uint8_t len)
 {
     char b[4];
     memset(b, '0', 4);
