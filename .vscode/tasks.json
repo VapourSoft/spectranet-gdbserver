@@ -1,6 +1,19 @@
-{
-	"version": "2.0.0",
-	"tasks": [
+	{
+		"version": "2.0.0",
+		"tasks": [
+			{
+				"label": "Build RSX-C PRL (ASM+C)",
+				"type": "shell",
+				"command": "C:/msys64/usr/bin/bash.exe",
+				"args": [
+					"-lc",
+					"export PATH=\"/c/z88dk/bin:$PATH\"; cd /c/Users/shane/Dev/spectranet-gdbserver; make rsx-c-prl"
+				],
+				"isBackground": false,
+				"problemMatcher": [],
+				"group": "build"
+			},
+
 		{
 			"label": "COPY ZDBG to TESTDIR",
 			"type": "shell",
@@ -41,7 +54,7 @@
 			"isBackground": false,
 			"problemMatcher": [],
 			"group": "build"
-		}
+		},
 		{
 			"label": "Build TESTVER",
 			"type": "shell",
@@ -92,7 +105,23 @@
 				"copy /Y \"${workspaceFolder}\\ZDBG_RSX.PRL\" \"${workspaceFolder}\\test\\zdbgrsx.rsx\""
 			],
 			"dependsOn": [
-				"Build RSX PRL"
+				"Build RSX Versions"
+			],
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared"
+			}
+		},
+{
+			"label": "COPY zrsxc to TESTDIR",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"copy /Y \"${workspaceFolder}\\zrsxc.rsx\" \"${workspaceFolder}\\test\\zrsxc.rsx\""
+			],
+			"dependsOn": [
+				"Build RSX Versions"
 			],
 			"presentation": {
 				"reveal": "always",
@@ -100,10 +129,19 @@
 			}
 		},
 		{
+			"label": "Build RSX Versions",
+			"dependsOrder": "sequence",
+			"dependsOn": [
+				//"Build RSX PRL",
+				"Build RSX-C PRL (ASM+C)"
+			]
+		},
+		{
 			"label": "Copy",
 			"dependsOn": [
-				"COPY PRL to TESTDIR",
-				"COPY TESTVER to TESTDIR"
+				//"COPY PRL to TESTDIR",
+				"COPY TESTVER to TESTDIR",
+				"COPY zrsxc to TESTDIR"
 			]
 		},
 		{

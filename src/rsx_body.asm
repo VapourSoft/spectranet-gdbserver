@@ -21,6 +21,9 @@
 ; Public symbols (if later linked with other modules): rsx_start
 
 ; Select origin via TEMPLATE macro (z80asm: pass -DTEMPLATE for template build)
+
+
+
 IF TEMPLATE
     ORG 0x0000
     ;ORG 0x0000
@@ -28,10 +31,15 @@ ELSE
     ORG 0x0100
 ENDIF
 
+    EXTERN _rsx_c_banner
+
+    
+
     PRINT_STRING equ 9
 
     PUBLIC rsx_start
     PUBLIC ftest
+    PUBLIC NEXT
 
 rsx_start:
 RSXTOP:   
@@ -65,6 +73,8 @@ handle:
     dad sp                    ; save stack pointer
     shld ret_stack
     lxi sp,loc_stack
+
+    call _rsx_c_banner
 
     mvi c,PRINT_STRING
     lxi d,msg
