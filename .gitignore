@@ -8,3 +8,7 @@
 *.lib
 .ticks_history.txt
 /.idea
+/test
+/*.bin
+/*.prl
+/*.com
