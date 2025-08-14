@@ -2,12 +2,12 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"label": "COPY to test (B:)",
+			"label": "COPY ZDBG to TESTDIR",
 			"type": "shell",
 			"command": "cmd",
 			"args": [
 				"/c",
-				"copy /Y \"${workspaceFolder}\\ZDBG.COM\" \"C:\\Users\\shane\\Dev\\z80-stub\\test\\z.com\""
+				"copy /Y \"${workspaceFolder}\\ZDBG.COM\" \"${workspaceFolder}\\test\\z.com\""
 			],
 			"dependsOn": [
 				"Build CP/M ZDBG (PCW DART)"
@@ -20,15 +20,15 @@
 		{
 			"label": "joyce: run (With build)",
 			"type": "shell",
-			"command": "\"S:\\Retro\\PCW\\Emulators\\Joyce\\xjoyce.exe\" -A \"S:\\Retro\\PCW\\Emulators\\Joyce\\Joyce\\Boot\\boot-zdbg.dsk\" -m 512",
+			"command": "\"S:\\Retro\\PCW\\Emulators\\Joyce\\xjoyce.exe\" -A \"S:\\Retro\\PCW\\Emulators\\Joyce\\Joyce\\Boot\\boot-zdbg-no_auto.dsk\" -m 512",
 			"dependsOn": [
-				"COPY to test (B:)"
+				"COPY to TESTDIR"
 			]
 		},
 		{
 			"label": "joyce: run (NO build)",
 			"type": "shell",
-			"command": "\"S:\\Retro\\PCW\\Emulators\\Joyce\\xjoyce.exe\" -A \"S:\\Retro\\PCW\\Emulators\\Joyce\\Joyce\\Boot\\boot-zdbg.dsk\" -m 512"
+			"command": "\"S:\\Retro\\PCW\\Emulators\\Joyce\\xjoyce.exe\" -A \"S:\\Retro\\PCW\\Emulators\\Joyce\\Joyce\\Boot\\boot-zdbg-no_auto.dsk\" -m 512"
 		},
 		{
 			"label": "Build CP/M ZDBG (PCW DART)",
@@ -41,30 +41,78 @@
 			"isBackground": false,
 			"problemMatcher": [],
 			"group": "build"
-		},
-		{
-			"label": "Build after enabling rst8_install",
-			"type": "shell",
-			"command": "C:/msys64/usr/bin/bash.exe",
-			"args": [
-				"-lc",
-				"export PATH=\"/c/z88dk/bin:$PATH\"; cd /c/Users/shane/Dev/spectranet-gdbserver; make cpm CPM_EXTRA='-DDEBUG'"
-			],
-			"isBackground": false,
-			"problemMatcher": [],
-			"group": "build"
-		},
-		{
-			"label": "Rebuild with before/after debug",
-			"type": "shell",
-			"command": "C:/msys64/usr/bin/bash.exe",
-			"args": [
-				"-lc",
-				"export PATH=\"/c/z88dk/bin:$PATH\"; cd /c/Users/shane/Dev/spectranet-gdbserver; make cpm CPM_EXTRA='-DDEBUG'"
-			],
-			"isBackground": false,
-			"problemMatcher": [],
-			"group": "build"
 		}
-	]
+		{
+			"label": "Build TESTVER",
+			"type": "shell",
+			"command": "C:/msys64/usr/bin/bash.exe",
+			"args": [
+				"-lc",
+				"export PATH=\"/c/z88dk/bin:$PATH\"; cd /c/Users/shane/Dev/spectranet-gdbserver; make testver"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		}		
+		,
+		{
+			"label": "COPY TESTVER to TESTDIR",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"copy /Y \"${workspaceFolder}\\TESTVER.COM\" \"${workspaceFolder}\\test\\testver.com\""
+			],
+			"dependsOn": [
+				"Build TESTVER"
+			],
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared"
+			}
+		},
+		{
+			"label": "Build RSX PRL",
+			"type": "shell",
+			"command": "C:/msys64/usr/bin/bash.exe",
+			"args": [
+				"-lc",
+				"export PATH=\"/c/z88dk/bin:$PATH\"; cd /c/Users/shane/Dev/spectranet-gdbserver; make rsx-prl"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "COPY PRL to TESTDIR",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"copy /Y \"${workspaceFolder}\\ZDBG_RSX.PRL\" \"${workspaceFolder}\\test\\zdbgrsx.rsx\""
+			],
+			"dependsOn": [
+				"Build RSX PRL"
+			],
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared"
+			}
+		},
+		{
+			"label": "Copy",
+			"dependsOn": [
+				"COPY PRL to TESTDIR",
+				"COPY TESTVER to TESTDIR"
+			]
+		},
+		{
+			"label": "Build/Copy/Run",
+			"dependsOrder": "sequence",
+			"dependsOn": [
+				"Copy",
+				"joyce: run (NO build)"
+			]
+		}
+		]
 }

@@ -5,8 +5,14 @@ GDBSERVER_ASM_SOURCES=$(wildcard src/*.asm)
 GDBSERVER_ASM_OBJECTS=$(GDBSERVER_ASM_SOURCES:.asm=_asm.o)
 INCLUDES=-I$(ROOT_DIR)/include/spectranet -I$(ROOT_DIR)/src
 JUST_PRINT:=$(findstring n,$(MAKEFLAGS))
+Z80ASM_CANDIDATES := $(wildcard /c/z88dk/bin/z80asm) $(wildcard /c/z88dk/bin/z80asm.exe) $(shell command -v z80asm 2>/dev/null)
+Z80ASM := $(firstword $(Z80ASM_CANDIDATES))
+ZCC_CANDIDATES := $(wildcard /c/z88dk/bin/zcc) $(wildcard /c/z88dk/bin/zcc.exe) $(shell command -v zcc 2>/dev/null)
+ZCC := $(firstword $(ZCC_CANDIDATES))
 
 ifneq (,$(JUST_PRINT))
+Z80ASM_CANDIDATES := $(wildcard /c/z88dk/bin/z80asm) $(wildcard /c/z88dk/bin/z80asm.exe) $(shell command -v z80asm 2>/dev/null)
+Z80ASM := $(firstword $(Z80ASM_CANDIDATES))
 	PHONY_OBJS := yes
 	CC = gcc
 	LD = ar
@@ -27,14 +33,60 @@ endif
 
 all: gdbserver
 
+# Build testver.com (CP/M COM utility to test BDOS 12/RSX handler)
+.PHONY: testver
+testver:
+	# zcc +cpm -subtype=pcw80 src/testver.c -o testver -create-app 
+	zcc +cpm  -compiler=sdcc -clib=sdcc_ix -SO3 -vn -O2 src/testver.c -o testver -create-app 
+
 # CP/M serial build (PCW DART) using sdcc_ix
 .PHONY: cpm
 cpm:
-	zcc +cpm -compiler=sdcc -clib=sdcc_ix -SO3 -vn -O2 \
+	zcc +cpm  -compiler=sdcc -clib=sdcc_ix -SO3 -vn -O2 \
 	  -DTARGET_PCW_DART $(CPM_EXTRA) \
 	  src/pcw_rst8.asm src/pcw_rst8.c src/pcw_dart.c \
 	  src/state.c src/utils.c src/server.c src/cpm_stubs.c src/cpm_main.c \
 	  -o ZDBG -create-app
+
+# Build minimal RSX skeleton (assembly only for now)
+.PHONY: rsx
+rsx:
+	zcc +cpm -compiler=sdcc -clib=sdcc_ix -SO3 -vn -O2 \
+	  src/zdbg_rsx.asm \
+	  -o ZDBG_RSX -create-app
+
+# Build RSX PRL using dual ORG images and makeprl utility
+.PHONY: rsx-prl
+rsx-prl: build
+	@echo "[RSX-PRL] Using z80asm to build dual ORG images"
+	@if ! command -v z80asm >/dev/null 2>&1; then echo "ERROR: z80asm not in PATH"; exit 1; fi
+	@echo "[RSX-PRL] Template (TEMPLATE macro -> ORG 0201h)"
+	rm -f rsx_body_template.bin rsx_body_real.bin
+	( cd src && rm -f rsx_body.bin && z80asm -b -DTEMPLATE rsx_body.asm ) || exit 1
+	@if [ ! -f src/rsx_body.bin ]; then echo "ERROR: src/rsx_body.bin not produced (template)"; exit 1; fi
+	mv src/rsx_body.bin rsx_body_template.bin
+	@echo "[RSX-PRL] Real (default ORG 0100h)"
+	( cd src && rm -f rsx_body.bin && z80asm -b rsx_body.asm ) || exit 1
+	@if [ ! -f src/rsx_body.bin ]; then echo "ERROR: src/rsx_body.bin not produced (real)"; exit 1; fi
+	mv src/rsx_body.bin rsx_body_real.bin
+	@echo "[RSX-PRL] Running makeprl"
+	@if [ -f tools/makeprl.exe ]; then \
+	  tools/makeprl.exe rsx_body_template.bin rsx_body_real.bin NUL ZDBG_RSX.PRL; \
+	else \
+	  ./tools/makeprl rsx_body_template.bin rsx_body_real.bin NUL ZDBG_RSX.PRL; \
+	fi
+	@echo "[RSX-PRL] Done -> ZDBG_RSX.PRL"
+
+# (Optional) build Linux helper version if needed (not required when makeprl.exe exists)
+tools/makeprl: tools/makeprl.c
+	gcc -O2 -o $@ $< || true
+
+# Build RSXCHK utility
+.PHONY: rsxchk
+rsxchk:
+	zcc +cpm -compiler=sdcc -clib=sdcc_ix -SO3 -vn -O2 \
+	  src/rsxchk.asm \
+	  -o RSXCHK -create-app
 
 build/gdbserver: $(GDBSERVER_C_OBJECTS) $(GDBSERVER_ASM_OBJECTS)
 	$(LD) $(LDFLAGS) $(BIN_FLAGS) -o build/gdbserver $(GDBSERVER_FLAGS) $(GDBSERVER_C_OBJECTS) $(GDBSERVER_ASM_OBJECTS)
