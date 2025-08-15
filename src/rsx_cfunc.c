@@ -22,7 +22,7 @@ void printS(const char* str) __z88dk_fastcall
         call NEXT  ; call the BDOS function
         
         
-    __endasm
+    __endasm;
 
 }
 

@@ -1,6 +1,10 @@
 // PCW DART minimal polled backend (SDCC/ASxxxx compatible)
 #include <stdint.h>
+
+//Cant run in DEBUG when an RSX as it would need to pull in all the extra libs etc
+#ifdef DEBUG
 #include <stdio.h>
+#endif
 
 
 // PCW Z80 DART ports (status/command at 0xE1, data at 0xE0)
@@ -86,6 +90,7 @@ void wait_dart_rx_ready(void) {
 	// Wait for a received character, handling DTR as in the original asm.
 	// Returns 1 when data is available.
 	static uint8_t dtr_raised = 0;
+	
 	DI;
 
 	while (1) {

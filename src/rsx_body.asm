@@ -26,13 +26,13 @@
 
 IF TEMPLATE
     ORG 0x0000
-    ;ORG 0x0000
 ELSE
     ORG 0x0100
 ENDIF
 
     EXTERN _rsx_c_banner
     EXTERN _rst8_install
+    EXTERN _dart_init
     
 
     PRINT_STRING equ 9
@@ -41,12 +41,14 @@ ENDIF
     PUBLIC ftest
     PUBLIC NEXT
 
+; RSX header - BEGIN DO NOT MODIFY !!!!!
+
 rsx_start:
 RSXTOP:   
           db 0,0,0
           db 0,0,0           ; loader puts serial here
 ICEPT:    
-          jp ftest       ; Intercept entry for BDOS chain
+          jp ftest           ; Intercept entry for BDOS chain
 NEXT:     
           db 0xc3            ; jump instruction 
           dw 0               ; to next module in line (if this rsx makes BDOS calls then they should be chained here - i.e. jmp next)
@@ -62,34 +64,66 @@ LOADER:
           db 0               ; loader flag
           db 0,0             ; flag / version bytes (unused for now)
 
+; END RSX header !!!!!
+
+
 ; Transient execution entry when run as a COM (GENCOM may execute init code)
+
 ftest:
     mov a,c
-    cpi 12
-    jz  handle
+    cpi 60
+    jz  bdos60_handler
+    cpi 12                   ; version request BDOS intercept
+    jz  handle              
     jmp NEXT
-handle:
+
+bdos60_handler:
+    mov a,e
+    cpi 1
+    jz bdos60_init
+    jmp NEXT
+
+bdos60_init:
     lxi h,0
     dad sp                    ; save stack pointer
     shld ret_stack
     lxi sp,loc_stack
 
+    ; Call pcw serial init
+    call _dart_init
+
+    ; Call rst8 install
     call _rst8_install
+
+    mvi c,9        ; BDOS print string
+    lxi d,rsx60msg
+    call NEXT
+
+    jmp restore_stack_and_ret
+
+not_bdos60:
+    jmp NEXT
+
+handle:                       ; nothing calls this right now, as this was jut to intercept version request for testing
+    lxi h,0
+    dad sp                    ; save stack pointer
+    shld ret_stack
+    lxi sp,loc_stack
+
     call _rsx_c_banner
 
     mvi c,PRINT_STRING
     lxi d,msg
     call NEXT
+
+restore_stack_and_ret:
     lhld ret_stack            ; restore stack
     sphl
     lxi h,0x35
     ret
 
-; Simple intercept: immediately chain to previous RSX / BDOS.
-rsx_icept:
-    jp NEXT      ; FDOS contains jp <prev> so this jumps through to it
-
 msg: defb "ZDBG RSX body$"
+rsx60msg: defb "RSX: GDB Server Initialised",13,10,"$"
 
 ret_stack: dw 0
            ds 32 ; 16 level stack
