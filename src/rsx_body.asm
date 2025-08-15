@@ -32,7 +32,7 @@ ELSE
 ENDIF
 
     EXTERN _rsx_c_banner
-
+    EXTERN _rst8_install
     
 
     PRINT_STRING equ 9
@@ -74,6 +74,7 @@ handle:
     shld ret_stack
     lxi sp,loc_stack
 
+    call _rst8_install
     call _rsx_c_banner
 
     mvi c,PRINT_STRING

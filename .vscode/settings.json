@@ -4,7 +4,10 @@
         "*.asm": "z80-macroasm",
         "pcw_dart.h": "c",
         "state.h": "c",
-        "stdio.h": "c"
+        "stdio.h": "c",
+        "stdint.h": "c",
+        "cstdint": "c",
+        "pcw_rst8.h": "c"
     },
     "makefile.configureOnOpen": true
 }

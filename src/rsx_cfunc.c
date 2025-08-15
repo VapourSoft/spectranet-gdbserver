@@ -6,6 +6,8 @@
 // as this is not __naked function, the C compiler will generate a prologue and epilogue
 // to save and restore registers, so we can use the stack and other registers as needed.    
 
+
+
 void printS(const char* str) __z88dk_fastcall 
 {
     str; // suppress unused warning
@@ -16,13 +18,13 @@ void printS(const char* str) __z88dk_fastcall
         ld  de,hl   ; DE = str        
 
         mvi c,PRINT_STRING
-        ;lxi d,str
-        call NEXT
-        
-        ;msg: defb "C FUMCTION body$"
-    __endasm;
 
-};
+        call NEXT  ; call the BDOS function
+        
+        
+    __endasm
+
+}
 
 
 void rsx_c_banner(void)  {

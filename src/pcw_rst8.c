@@ -17,6 +17,9 @@ extern uint16_t rst8_sp_copy; // storage in pcw_rst8.asm
    5: AF
    6: ret_addr (address AFTER RST 08 byte)
 */
+extern void printS(const char* str) __z88dk_fastcall ;
+
+
 void rst8_c_trap(void)
 {
   // Stack layout after pushes (each push 2 bytes):
@@ -38,6 +41,9 @@ void rst8_c_trap(void)
   gdbserver_state.registers[REGISTERS_AF] = base[5];
   gdbserver_state.registers[REGISTERS_IX] = base[1];
   gdbserver_state.registers[REGISTERS_IY] = base[0];
+
+  // Print debug message to the screen using BDOS call
+  printS("[RST08!]\r\n$");
 
   gdbserver_state.trap_flags |= TRAP_FLAG_BREAK_HIT;
 }

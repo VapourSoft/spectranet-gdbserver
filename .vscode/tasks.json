@@ -112,7 +112,7 @@
 				"panel": "shared"
 			}
 		},
-{
+		{
 			"label": "COPY zrsxc to TESTDIR",
 			"type": "shell",
 			"command": "cmd",
@@ -129,6 +129,35 @@
 			}
 		},
 		{
+			"label": "Build RSX CHECK",
+			"type": "shell",
+			"command": "C:/msys64/usr/bin/bash.exe",
+			"args": [
+				"-lc",
+				"export PATH=\"/c/z88dk/bin:$PATH\"; cd /c/Users/shane/Dev/spectranet-gdbserver; make rsxchk"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "COPY RSXCHK to TESTDIR",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"copy /Y \"${workspaceFolder}\\RSXCHK.COM\" \"${workspaceFolder}\\test\\RSXCHK.COM\""
+			],
+			"dependsOn": [
+				"Build RSX CHECK"
+			],
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared"
+			}
+		},		
+
+		{
 			"label": "Build RSX Versions",
 			"dependsOrder": "sequence",
 			"dependsOn": [
@@ -141,7 +170,8 @@
 			"dependsOn": [
 				//"COPY PRL to TESTDIR",
 				"COPY TESTVER to TESTDIR",
-				"COPY zrsxc to TESTDIR"
+				"COPY zrsxc to TESTDIR",
+				"COPY RSXCHK to TESTDIR"
 			]
 		},
 		{
