@@ -19,7 +19,7 @@ function Get-Ascii([byte[]]$buf, [int]$len) {
   return -join ($buf[0..($len-1)] | ForEach-Object { if (32 -le $_ -and $_ -lt 127) { [char]$_ } else { '.' } })
 }
 
-$listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, $Port)
+$listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Any, $Port)
 try { $listener.Server.SetSocketOption([System.Net.Sockets.SocketOptionLevel]::Socket, [System.Net.Sockets.SocketOptionName]::ReuseAddress, $true) } catch {}
 try {
   $listener.Start()

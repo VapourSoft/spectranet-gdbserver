@@ -1,6 +1,8 @@
 #include <stdint.h>
 #include "state.h"
 #include "pcw_rst8.h"
+#include "server.h"
+#include "pcw_dart.h"
 
 extern struct gdbserver_state_t gdbserver_state;
 
@@ -46,4 +48,17 @@ void rst8_c_trap(void)
   printS("[RST08!]\r\n$");
 
   gdbserver_state.trap_flags |= TRAP_FLAG_BREAK_HIT;
+
+  /*while (1) {
+      char c = dart_getc();
+      dart_putc(c);
+  }*/
+
+  // Enter GDB server main loop (wait for GDB connection/commands)
+  while (1) {
+    server_read_data();
+    // Exit loop if GDB sends continue/step (trap_flags cleared)
+    if (!(gdbserver_state.trap_flags & TRAP_FLAG_BREAK_HIT))
+      break;
+  } 
 }

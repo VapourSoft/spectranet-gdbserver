@@ -10,7 +10,7 @@ extern void print42(const char* text) __z88dk_callee __z88dk_fastcall;
 extern void clear42(void);
 extern void set_trap(void* trap_handler) __z88dk_callee __z88dk_fastcall;
 extern void reset_trap(void) __z88dk_callee; // zero-arg: no fastcall
-extern void char_to_hex(char* res, uint8_t c) __z88dk_fastcall __z88dk_callee;
+extern void char_to_hex(char* res, uint8_t c) __z88dk_callee;
 extern uint8_t hex_to_char(const char* from) __z88dk_fastcall __z88dk_callee;
 extern uint16_t from_hex_str(const char* in, uint8_t len) __z88dk_callee;
 extern void from_hex(const char* in, uint8_t* out, uint8_t len) __z88dk_callee;

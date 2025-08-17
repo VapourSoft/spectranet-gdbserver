@@ -63,29 +63,37 @@ rsx-c-prl: build
 	@echo "[RSX-C-PRL] Using z80asm to build dual ORG images (ASM+C)"
 	@if ! command -v zcc >/dev/null 2>&1; then echo "ERROR: zcc not in PATH"; exit 1; fi
 	@if ! command -v z80asm >/dev/null 2>&1; then echo "ERROR: z80asm not in PATH"; exit 1; fi
-	rm -f rsx_body_template.bin rsx_body_real.bin src/rsx_cfunc.o src/pcw_rst8_c.o src/state.o erc/pcw_dart.o
+	rm -f rsx_body_template.bin rsx_body_real.bin src/rsx_cfunc.o src/pcw_rst8_c.o src/state.o src/pcw_dart.o src/server.o
+
+#	#build our lib as sdcc_ix lib is is built on the fly by zcc and we need vcertain functions for the z80asm link step!
+#	@echo "Compiling sdcc ix lib"
+#	( cd src && zcc +cpm -compiler=sdcc -clib=sdcc_ix -c strstr.asm strstr_callee.asm asm_strstr.asm -o sdcc_ix.o ) || exit 1
+#	@if [ ! -f src/sdcc_ix.o ]; then echo "ERROR: sdcc_ix.o not produced"; exit 1; fi	
 
 	@echo "Compiling C object files"
-	( cd src && zcc +cpm -compiler=sdcc -c rsx_cfunc.c -o rsx_cfunc.o ) || exit 1
+	( cd src && zcc +cpm -compiler=sdcc -clib=sdcc_ix -c rsx_cfunc.c -o rsx_cfunc.o ) || exit 1
 	@if [ ! -f src/rsx_cfunc.o ]; then echo "ERROR: rsx_cfunc.o not produced"; exit 1; fi	
 
-	@echo "Compiling C object files"
-	( cd src && zcc +cpm  -compiler=sdcc -c pcw_dart.c -o pcw_dart.o ) || exit 1
+	(cd src && zcc +cpm -DTARGET_PCW_DART -compiler=sdcc -clib=sdcc_ix -c server.c utils.c -o server.o ) || exit 1
+	@if [ ! -f src/server.o ]; then echo "ERROR: server.o not produced"; exit 1; fi	
+
+	( cd src && zcc +cpm  -compiler=sdcc -clib=sdcc_ix -c pcw_dart.c -o pcw_dart.o ) || exit 1
 	@if [ ! -f src/pcw_dart.o ]; then echo "ERROR: pcw_dart.o not produced"; exit 1; fi	
 
-	( cd src && zcc +cpm -compiler=sdcc -c pcw_rst8.c -o pcw_rst8_c.o ) || exit 1
+	( cd src && zcc +cpm -compiler=sdcc -clib=sdcc_ix -c pcw_rst8.c -o pcw_rst8_c.o ) || exit 1
 	@if [ ! -f src/pcw_rst8_c.o ]; then echo "ERROR: pcw_rst8_c.o not produced"; exit 1; fi	
 
-	( cd src && zcc +cpm  -c state.c -o state.o ) || exit 1
+	( cd src && zcc +cpm  -compiler=sdcc -clib=sdcc_ix -c state.c -o state.o ) || exit 1
 	@if [ ! -f src/state.o ]; then echo "ERROR: state.o not produced"; exit 1; fi	
 
+# need to fix this - order of objects and everthing MUST be the same - should be defined once!
 	@echo "[RSX-C-PRL] Template (TEMPLATE macro -> ORG 0000h)"
-	( cd src && z80asm -b -DTEMPLATE rsx_body.asm  pcw_rst8.asm pcw_rst8_c.o state.o rsx_cfunc.o pcw_dart.o ) || exit 1
+	( cd src && z80asm -b  -DTEMPLATE rsx_body.asm  pcw_rst8.asm pcw_rst8_c.o state.o rsx_cfunc.o pcw_dart.o server.o ) || exit 1
 	mv src/rsx_body.bin rsx_body_template.bin
 	@if [ ! -f rsx_body_template.bin ]; then echo "ERROR: rsx_body_template.bin not produced (template)"; exit 1; fi
 
 	@echo "[RSX-C-PRL] Real (default ORG 0100h)"
-	( cd src && z80asm -b rsx_body.asm pcw_rst8.asm pcw_rst8_c.o state.o rsx_cfunc.o pcw_dart.o ) || exit 1
+	( cd src && z80asm -b rsx_body.asm pcw_rst8.asm pcw_rst8_c.o state.o rsx_cfunc.o pcw_dart.o server.o ) || exit 1
 	mv src/rsx_body.bin rsx_body_real.bin
 	@if [ ! -f rsx_body_real.bin ]; then echo "ERROR: rsx_body_real.bin not produced (real)"; exit 1; fi
 

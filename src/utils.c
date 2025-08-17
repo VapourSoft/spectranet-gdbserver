@@ -1,5 +1,5 @@
 #include "utils.h"
-#include <string.h>
+#include <stddef.h>
 
 #ifdef TARGET_PCW_DART
 // C fallbacks for hex helpers when not using ZX assembly versions
@@ -44,11 +44,28 @@ void to_hex(const uint8_t* in, char* out, uint8_t len)
     }
 }
 
+void *__memcpy(void *dest, const void *src, size_t n)
+{
+    unsigned char *d = (unsigned char *)dest;
+    const unsigned char *s = (const unsigned char *)src;
+    while (n--)
+        *d++ = *s++;
+    return dest;
+}
+
+void *__memset(void *s, int c, size_t n)
+{
+    unsigned char *p = (unsigned char *)s;
+    while (n--)
+        *p++ = (unsigned char)c;
+    return s;
+}
+
 uint16_t from_hex_str(const char* in, uint8_t len)
 {
     char b[4];
-    memset(b, '0', 4);
-    memcpy(b + 4 - len, in, len);
+    __memset(b, '0', 4);
+    __memcpy(b + 4 - len, in, len);
 
     uint8_t result[2];
     from_hex(b, result, 4);

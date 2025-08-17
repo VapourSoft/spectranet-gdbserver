@@ -1,4 +1,5 @@
 // Serial-backed GDB server (PCW DART)
+
 #include "server.h"
 #include "utils.h"
 #include "state.h"
@@ -8,15 +9,17 @@
 #ifdef TARGET_PCW_DART
 #endif
 
-#include <string.h>
+//#include <string.h>
 #include <stddef.h>
-#include <stdio.h>
+//#include <stdio.h>
+
+extern void *__memcpy(void *dest, const void *src, size_t n) ;
 
 uint8_t server_init(void)
 {
-    dart_init();
+    //dart_init();
     #ifdef TARGET_PCW_DART
-    rst8_install();
+    //rst8_install();
     #endif
     gdbserver_state.server_socket = 1;
     return 0;
@@ -35,6 +38,55 @@ static void write_str_raw(const char *data)
         dart_putc((uint8_t)*data++);
 }
 
+static  size_t strlen(const char *str)
+{
+    const char *s = str;
+    while (*s)
+        ++s;
+    return s - str;
+}
+
+static char *strstr(const char *haystack, const char *needle)
+{
+    if (!*needle)
+        return (char *)haystack;
+
+    for (; *haystack; ++haystack)
+    {
+        const char *h = haystack;
+        const char *n = needle;
+        while (*h && *n && (*h == *n))
+        {
+            ++h;
+            ++n;
+        }
+        if (!*n)
+            return (char *)haystack;
+    }
+    return NULL;
+}
+
+static int strcmp(const char *s1, const char *s2)
+{
+    while (*s1 && (*s1 == *s2)) {
+        s1++;
+        s2++;
+    }
+    return *(const unsigned char *)s1 - *(const unsigned char *)s2;
+}
+
+static char *__strchr(const char *s, int c)
+{
+    while (*s)
+    {
+        if (*s == (char)c)
+            return (char *)s;
+        ++s;
+    }
+    return (c == 0) ? (char *)s : NULL;
+}
+
+
 static void write_packet_bytes(const uint8_t *data, uint8_t num_bytes)
 {
     size_t i;
@@ -42,7 +94,7 @@ static void write_packet_bytes(const uint8_t *data, uint8_t num_bytes)
     char* wbuf = gdbserver_state.w_buffer;
 
     *wbuf++ = '$';
-    memcpy(wbuf, data, num_bytes);
+    __memcpy(wbuf, data, num_bytes);
     wbuf += num_bytes;
     *wbuf++ = '#';
 
@@ -66,10 +118,6 @@ uint8_t server_listen()
     return 0;
 }
 
-void server_on_disconnect()
-{
-    // No-op for serial
-}
 
 static const struct {
     const char* request;
@@ -192,7 +240,7 @@ static uint8_t process_packet()
             // read memory
             // 8000,38
 
-            char* comma = strchr(payload, ',');
+            char* comma = __strchr(payload, ',');
             if (comma == NULL)
             {
                 goto error;
@@ -212,12 +260,12 @@ static uint8_t process_packet()
             // write memory
             // 8000,38:<hex>
 
-            char* comma = strchr(payload, ',');
+            char* comma = __strchr(payload, ',');
             if (comma == NULL)
             {
                 goto error;
             }
-            char* colon = strchr(comma, ':');
+            char* colon = __strchr(comma, ':');
             if (colon == NULL)
             {
                 goto error;
@@ -226,7 +274,7 @@ static uint8_t process_packet()
             uint8_t* mem_offset = (uint8_t*)from_hex_str(payload, comma - payload);
             uint16_t mem_size = from_hex_str(comma + 1, colon - comma - 1);
             from_hex(colon + 1, gdbserver_state.buffer, mem_size * 2);
-            memcpy((uint8_t*)mem_offset, gdbserver_state.buffer, mem_size);
+            __memcpy((uint8_t*)mem_offset, gdbserver_state.buffer, mem_size);
             write_ok();
             break;
         }
@@ -243,7 +291,7 @@ static uint8_t process_packet()
             }
             payload++;
 
-            char* comma = strchr(payload, ',');
+            char* comma = __strchr(payload, ',');
             if (comma == NULL)
             {
                 goto error;

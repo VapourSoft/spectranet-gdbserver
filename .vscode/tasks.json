@@ -33,15 +33,16 @@
 		{
 			"label": "joyce: run (With build)",
 			"type": "shell",
-			"command": "\"S:\\Retro\\PCW\\Emulators\\Joyce\\xjoyce.exe\" -A \"S:\\Retro\\PCW\\Emulators\\Joyce\\Joyce\\Boot\\boot-zdbg-no_auto.dsk\" -m 512",
+			"command": "\"S:\\Retro\\PCW\\Emulators\\Joyce\\xjoyce.exe\" -A \"S:\\Retro\\PCW\\Emulators\\Joyce\\Joyce\\Boot\\boot-zdbg.dsk\" -m 512",
+			//"command": "\"S:\\Retro\\PCW\\Emulators\\Joyce\\xjoyce.exe\" -A \"S:\\Retro\\PCW\\Emulators\\CPM Box\\boot-zdbg.dsk\" -m 512",
 			"dependsOn": [
-				"COPY to TESTDIR"
+				"Copy"
 			]
 		},
 		{
 			"label": "joyce: run (NO build)",
 			"type": "shell",
-			"command": "\"S:\\Retro\\PCW\\Emulators\\Joyce\\xjoyce.exe\" -A \"S:\\Retro\\PCW\\Emulators\\Joyce\\Joyce\\Boot\\boot-zdbg-no_auto.dsk\" -m 512"
+			"command": "\"S:\\Retro\\PCW\\Emulators\\Joyce\\xjoyce.exe\" -A \"S:\\Retro\\PCW\\Emulators\\Joyce\\Joyce\\Boot\\boot-zdbg.dsk\" -m 512",
 		},
 		{
 			"label": "Build CP/M ZDBG (PCW DART)",
