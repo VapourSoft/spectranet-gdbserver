@@ -145,7 +145,7 @@ static uint8_t process_packet()  __z88dk_callee
     char command = *payload++;
     switch (command)
     {
-        case '!':
+/*        case '!':
         {
             // Test trap trigger: execute RST 08 directly
             __asm__("rst 0x08");
@@ -154,7 +154,7 @@ static uint8_t process_packet()  __z88dk_callee
             // Clear flag so loop doesn't send again
             gdbserver_state.trap_flags &= (uint8_t)~TRAP_FLAG_BREAK_HIT;
             return 1;
-        }
+        } */
         case 'c':
         {
             // continue execution
