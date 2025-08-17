@@ -11,6 +11,11 @@
 
     ; Use z88dk standard section names so code isn't lost / zeroed
     SECTION bss_user
+
+safe_stack: 
+    defs 256         ; 256 bytes for private stack
+safe_stack_top:              ; label for top of stack (highest address)
+
 orig_rst8_bytes:
     defs 8              ; storage for original 8 bytes at 0008h
 _rst8_sp_copy:
@@ -43,6 +48,10 @@ rst8_entry:
     di
     ; save current SP for C (before we push anything else beyond our fixed set)
     ld (_rst8_sp_copy),sp
+
+    ; for safety we should switch to our own private stack here as we have no idea about the state of the stack
+    ld sp, safe_stack_top    
+
     push af
     push bc
     push de
@@ -56,5 +65,6 @@ rst8_entry:
     pop de
     pop bc
     pop af
+    ld sp, (_rst8_sp_copy)
     ei
     ret

@@ -7,7 +7,7 @@
 // to save and restore registers, so we can use the stack and other registers as needed.    
 
 
-
+//Must be $ terminated!!!!
 void printS(const char* str) __z88dk_fastcall 
 {
     str; // suppress unused warning

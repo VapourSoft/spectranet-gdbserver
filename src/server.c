@@ -138,7 +138,7 @@ static void write_ok()
     server_write_packet("OK");
 }
 
-static uint8_t process_packet()
+static uint8_t process_packet()  __z88dk_callee
 {
     char* payload = (char*)gdbserver_state.buffer;
 
