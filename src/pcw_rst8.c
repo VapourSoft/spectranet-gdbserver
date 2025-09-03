@@ -74,11 +74,11 @@ void rst8_c_trap(void)
         // Restore original instruction
         *(uint8_t*)(gdbserver_state.breakpoints[i].address) = gdbserver_state.breakpoints[i].original_instruction;
         trapped_breakpoint = i;
-        printS("[Breakpoint] $");
 
         //Logging
-        char_to_hex(hexbuf, ((ret_addr - 1) >> 8) & 0xFF);
-        char_to_hex(hexbuf + 2, (ret_addr - 1) & 0xFF);
+        printS("[Breakpoint] $");        
+        char_to_hex(hexbuf, (gdbserver_state.breakpoints[i].address >> 8) & 0xFF);
+        char_to_hex(hexbuf + 2, gdbserver_state.breakpoints[i].address & 0xFF);
         hexbuf[4] = '$';
         printS(hexbuf);      
         printS("\r\n$");
@@ -121,12 +121,15 @@ void rst8_c_trap(void)
   base[4] = gdbserver_state.registers[REGISTERS_BC];
   base[5] = gdbserver_state.registers[REGISTERS_AF];
 
+
+  //Need to figure out how to restore the BP on resume ... we need the original instruction back (done above) but then when we resume how can we put the BP back ?
+  //maybe we set a special temp breakpoint for next instructiion, with flag to put BP back and then contiue automatically ?
   // TODO: Shouldnt we restore the RST 08 if the breakpoint is still there, regardless of PC?
   // After GDB loop: if we stopped at a breakpoint and PC is still at the breakpoint address, restore the RST 08
-  if (trapped_breakpoint >= 0 &&
+  /*if (trapped_breakpoint >= 0 &&
       gdbserver_state.registers[REGISTERS_PC] == gdbserver_state.breakpoints[trapped_breakpoint].address) {
       *(uint8_t*)(gdbserver_state.breakpoints[trapped_breakpoint].address) = 0xCF; // RST 08h
-  }
+  }*/
 
   // If step requested set temp breakpoint at next instruction
   if ((gdbserver_state.trap_flags & TRAP_FLAG_STEP_INSTRUCTION) /*&& !temp_breakpoint_hit */) {
