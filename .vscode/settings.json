@@ -7,7 +7,14 @@
         "stdio.h": "c",
         "stdint.h": "c",
         "cstdint": "c",
-        "pcw_rst8.h": "c"
+        "pcw_rst8.h": "c",
+        "server.h": "c",
+        "string.h": "c",
+        "utils.h": "c",
+        "stddef.h": "c",
+        "z80_decode.h": "c",
+        "stdint-gcc.h": "c",
+        "compare": "c"
     },
     "makefile.configureOnOpen": true
 }

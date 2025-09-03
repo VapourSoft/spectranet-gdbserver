@@ -79,14 +79,17 @@ rsx-c-prl: build
 	( cd src && zcc +cpm -DTARGET_PCW_DART -compiler=sdcc -clib=sdcc_ix -c state.c -o state.o ) || exit 1
 	@if [ ! -f src/state.o ]; then echo "ERROR: state.o not produced"; exit 1; fi	
 
+	( cd src && zcc +cpm -DTARGET_PCW_DART -compiler=sdcc -clib=sdcc_ix -c z80_decode.c -o z80_decode.o ) || exit 1
+	@if [ ! -f src/z80_decode.o ]; then echo "ERROR: z80_decode.o not produced"; exit 1; fi	
+
 # need to fix this - order of objects and everthing MUST be the same - should be defined once!
 	@echo "[RSX-C-PRL] Template (TEMPLATE macro -> ORG 0000h)"
-	( cd src && z80asm -b  -DTEMPLATE rsx_body.asm  pcw_rst8.asm pcw_rst8_c.o state.o rsx_cfunc.o pcw_dart.o server.o ) || exit 1
+	( cd src && z80asm -b rsx_body.asm runtime.asm pcw_rst8.asm pcw_rst8_c.o state.o rsx_cfunc.o pcw_dart.o server.o z80_decode.o -DTEMPLATE  ) || exit 1
 	mv src/rsx_body.bin rsx_body_template.bin
 	@if [ ! -f rsx_body_template.bin ]; then echo "ERROR: rsx_body_template.bin not produced (template)"; exit 1; fi
 
 	@echo "[RSX-C-PRL] Real (default ORG 0100h)"
-	( cd src && z80asm -b rsx_body.asm pcw_rst8.asm pcw_rst8_c.o state.o rsx_cfunc.o pcw_dart.o server.o ) || exit 1
+	( cd src && z80asm -b rsx_body.asm runtime.asm pcw_rst8.asm pcw_rst8_c.o state.o rsx_cfunc.o pcw_dart.o server.o z80_decode.o  ) || exit 1
 	mv src/rsx_body.bin rsx_body_real.bin
 	@if [ ! -f rsx_body_real.bin ]; then echo "ERROR: rsx_body_real.bin not produced (real)"; exit 1; fi
 
