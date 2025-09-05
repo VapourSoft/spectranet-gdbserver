@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define MAX_BREAKPOINTS_COUNT (8)
+#define MAX_BREAKPOINTS_COUNT (20)
 // Order must match XML feature description
 #define REGISTERS_SP (0)
 #define REGISTERS_PC (1)
