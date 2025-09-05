@@ -25,12 +25,26 @@ extern void printS(const char* str) __z88dk_fastcall ;
 
 uint16_t trap_restore_addr = 0;
 
+
+//msg must be $ terminated!!!
+void log(const char *msg, uint16_t addr)
+{
+    char hexbuf[5];
+    printS(msg);
+    char_to_hex(hexbuf, (addr >> 8) & 0xFF);
+    char_to_hex(hexbuf + 2, addr & 0xFF);
+    hexbuf[4] = '$';
+    printS(hexbuf);      
+    printS("\r\n$");
+}
+
+
 void rst8_c_trap(void)
 {
   // Print debug message to the screen using BDOS call
-  printS("\r\n\r\n[RST08!]\r\n$");
+  printS("\r\n[RST08!]\r\n$");
 
-  char hexbuf[5];
+//  char hexbuf[5];
   // Stack layout after pushes (each push 2 bytes):
   // push af, bc, de, hl, ix, iy  (last pushed at lowest address)
   // Memory ascending: IY, IX, HL, DE, BC, AF, ret_addr
@@ -39,10 +53,8 @@ void rst8_c_trap(void)
   uint16_t *base = (uint16_t*)(rst8_sp_copy - 12);
   uint16_t ret_addr = base[6];
 
-
   // User SP before our pushes = (SP_new + 12) = rst8_sp_copy
   uint16_t user_sp = rst8_sp_copy;
-
 
   int trapped_breakpoint = -1;
   int enter_gdb_loop = 0;
@@ -53,6 +65,7 @@ void rst8_c_trap(void)
   if (gdbserver_state.temporary_breakpoint.address &&
       gdbserver_state.temporary_breakpoint.address == (ret_addr - 1)) {
     
+      log("[TEMP     BP] @ $", gdbserver_state.temporary_breakpoint.address );          
       // We've hit the temp breakpoint for single-step
       gdbserver_state.trap_flags = (gdbserver_state.trap_flags | TRAP_FLAG_BREAK_HIT);      
 
@@ -63,39 +76,20 @@ void rst8_c_trap(void)
       {
           // We were stepping to restore the original BP at the previous address
           *(uint8_t*)(trap_restore_addr) = 0xCF; // RST 08h
-
-          //Logging
-          printS("[RESTORED BP] $");
-          char_to_hex(hexbuf, (trap_restore_addr >> 8) & 0xFF);
-          char_to_hex(hexbuf + 2, trap_restore_addr & 0xFF);
-          hexbuf[4] = '$';
-          printS(hexbuf);      
-          printS("\r\n$");
-
           gdbserver_state.trap_flags &= (uint8_t)~TRAP_FLAG_RESTORE_RST08H;
-          printS("\r\n\r\nClear TRAP_FLAG_RESTORE_RST08H\r\n$");
+          log("[REST     BP] @ $", trap_restore_addr );          
       }
 //      else
       //{
       if (gdbserver_state.trap_flags & TRAP_FLAG_STEP_INSTRUCTION)
       {
-          //Logging
-          printS("[SS BP] $");
-          char_to_hex(hexbuf, (gdbserver_state.temporary_breakpoint.address >> 8) & 0xFF);
-          char_to_hex(hexbuf + 2, gdbserver_state.temporary_breakpoint.address & 0xFF);
-          hexbuf[4] = '$';
-          printS(hexbuf);      
-          printS("\r\n$");
-
-          // Clear temp breakpoint state
-          gdbserver_state.temporary_breakpoint.address = 0;
           // Flag that we hit the temp breakpoint
           enter_gdb_loop = 1;
-
           gdbserver_state.trap_flags &= (uint8_t)~TRAP_FLAG_STEP_INSTRUCTION;
-          printS("\r\n\r\nClear TRAP_FLAG_STEP_INSTRUCTION\r\n$");
-
+          log("[SINGLE STEP] @ $", gdbserver_state.temporary_breakpoint.address );          
       }
+      // Clear temp breakpoint state
+      gdbserver_state.temporary_breakpoint.address = 0;
   } 
   else 
   {
@@ -108,15 +102,7 @@ void rst8_c_trap(void)
         *(uint8_t*)(gdbserver_state.breakpoints[i].address) = gdbserver_state.breakpoints[i].original_instruction;
         trapped_breakpoint = i;
         gdbserver_state.trap_flags = (gdbserver_state.trap_flags | TRAP_FLAG_BREAK_HIT);
-
-        //Logging
-        printS("[Breakpoint] $");        
-        char_to_hex(hexbuf, (gdbserver_state.breakpoints[i].address >> 8) & 0xFF);
-        char_to_hex(hexbuf + 2, gdbserver_state.breakpoints[i].address & 0xFF);
-        hexbuf[4] = '$';
-        printS(hexbuf);      
-        printS("\r\n$");
-
+        log("[BREAK POINT] @ $", gdbserver_state.breakpoints[i].address );          
         break;
       }
     }
@@ -137,10 +123,9 @@ void rst8_c_trap(void)
   //Only enter GDB server loop if we hit a breakpoint or step (not for trap RST 08 restore)
   if (enter_gdb_loop )
   {
-    printS("\r\n\r\n[TRAP_FLAG_BREAK_HIT]\r\n$");
+    printS("[    GDB    ]\r\n$");
     // Always tell GDB we've stopped (breakpoint or step)
     server_write_packet("T05thread:p01.01;");
-
     // Enter GDB server main loop (wait for GDB connection/commands)
     while (server_read_data()) {
       // loop until GDB says continue/step
@@ -169,29 +154,35 @@ void rst8_c_trap(void)
       gdbserver_state.registers[REGISTERS_PC] == gdbserver_state.breakpoints[trapped_breakpoint].address) {
       *(uint8_t*)(gdbserver_state.breakpoints[trapped_breakpoint].address) = 0xCF; // RST 08h
   }*/
-  if (trapped_breakpoint >= 0 && gdbserver_state.registers[REGISTERS_PC] == gdbserver_state.breakpoints[trapped_breakpoint].address) {
+
+    // Check if we are on a breakpoint in case we need to restore RST 08
+    for (int i = 0; i < MAX_BREAKPOINTS_COUNT; i++) {
+      if (gdbserver_state.breakpoints[i].address ==  gdbserver_state.registers[REGISTERS_PC]) {
+        // Restore original instruction
+        trap_restore_addr = gdbserver_state.breakpoints[i].address;
+        gdbserver_state.trap_flags |= TRAP_FLAG_RESTORE_RST08H;
+        break;
+      }
+    }
+
+/*  if (trapped_breakpoint >= 0 && gdbserver_state.registers[REGISTERS_PC] == gdbserver_state.breakpoints[trapped_breakpoint].address) {
     //we need to stop at next instruction and restore the RST 08 on this breakpoint
     trap_restore_addr = gdbserver_state.breakpoints[trapped_breakpoint].address;
     gdbserver_state.trap_flags |= TRAP_FLAG_RESTORE_RST08H;
-  }
+  } */
 
   // If step requested set temp breakpoint at next instruction
   if ((gdbserver_state.trap_flags & TRAP_FLAG_STEP_INSTRUCTION || gdbserver_state.trap_flags & TRAP_FLAG_RESTORE_RST08H ) /*&& !temp_breakpoint_hit */) {
     // Use robust Z80 instruction decoder to find next instruction address
+
+    log("[PC IS      ] @ $", gdbserver_state.registers[REGISTERS_PC] );          
+
     uint16_t next_addr = calculateStep();
     gdbserver_state.temporary_breakpoint.address = next_addr;
     gdbserver_state.temporary_breakpoint.original_instruction = *(uint8_t*)next_addr;
     *(uint8_t*)next_addr = 0xCF; // RST 08h
     
-    printS(  gdbserver_state.trap_flags & TRAP_FLAG_RESTORE_RST08H ? "[SetStepToRestorePreviousBP] $" :  "[SetStepBP] $");
-    char_to_hex(hexbuf, (next_addr >> 8) & 0xFF);
-    char_to_hex(hexbuf + 2, next_addr & 0xFF);
-    hexbuf[4] = '$';
-    printS(hexbuf);
-    printS("\r\n$");
-    
-    // We've handled the step request by installing the temporary breakpoint; clear the request flag
-    //gdbserver_state.trap_flags &= (uint8_t)~TRAP_FLAG_STEP_INSTRUCTION;
+    log(gdbserver_state.trap_flags & TRAP_FLAG_RESTORE_RST08H ? "[DO REST BP ] @ $" :  "[STEP TEMPBP] @ $", next_addr );          
   }
 
 
@@ -199,21 +190,21 @@ void rst8_c_trap(void)
   uint16_t resume_addr = 0;
   if (gdbserver_state.registers[REGISTERS_PC] != (uint16_t)(ret_addr - 1)) {
     // User changed PC in GDB, resume at new PC
-    printS("[User Changed PC] $");
     resume_addr = gdbserver_state.registers[REGISTERS_PC];
+    log("[CONT NEW PC] @ $", resume_addr );          
   } else if (gdbserver_state.trap_flags & TRAP_FLAG_BREAK_HIT ) {
     // Resume at the breakpoint address (original instruction restored)
-    printS("[Resume at BP address] $");
     resume_addr = (uint16_t)(ret_addr - 1);
+    log("[CONT     BP] @ $", resume_addr );              
   } else {
     // Explicit RST 08 in user code: resume after RST 08
-    printS("[Explicit RST 08 resume after RST 08] $");    
     resume_addr = ret_addr;
+    log("[CONT > RST8] @ $", resume_addr );                  
   }
   base[6] = resume_addr;
 
   // Debug print: show return address and PC before returning (no stdlib, use char_to_hex)
-  printS(" ret=$");
+/*  printS(" ret=$");
   char_to_hex(hexbuf, (base[6] >> 8) & 0xFF);
   char_to_hex(hexbuf + 2, base[6] & 0xFF);
   hexbuf[4] = '$';
@@ -223,5 +214,5 @@ void rst8_c_trap(void)
   char_to_hex(hexbuf + 2, gdbserver_state.registers[REGISTERS_PC] & 0xFF);
   hexbuf[4] = '$';
   printS(hexbuf);
-  printS("\r\n$");
+  printS("\r\n$");*/
 }

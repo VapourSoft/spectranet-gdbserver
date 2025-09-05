@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define MAX_BREAKPOINTS_COUNT (20)
+#define MAX_BREAKPOINTS_COUNT (8)
 // Order must match XML feature description
 #define REGISTERS_SP (0)
 #define REGISTERS_PC (1)
@@ -46,7 +46,7 @@ struct gdbserver_state_t
     // Offsets of these is not important
     uint8_t buffer[128];
     uint8_t w_buffer[128];
-    struct breakpoint_t breakpoints[8];
+    struct breakpoint_t breakpoints[MAX_BREAKPOINTS_COUNT];
     struct breakpoint_t temporary_breakpoint;
     // Protocol flags (safe to append here; offsets above are the only critical ones)
     uint8_t no_ack_mode; // when set, don't send/expect '+' acks

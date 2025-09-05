@@ -19,7 +19,7 @@ uint8_t hex_to_char(const char* from)
 
 void char_to_hex(char* res, uint8_t c)
 {
-    static const char hex[] = "0123456789abcdef";
+    static const char hex[] = "0123456789ABCDEF";
     res[0] = hex[(c >> 4) & 0x0F];
     res[1] = hex[c & 0x0F];
 }
