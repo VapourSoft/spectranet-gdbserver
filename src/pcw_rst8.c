@@ -75,9 +75,20 @@ void rst8_c_trap(void)
       {
           // We were stepping to restore the original BP at the previous address
           gdbserver_state.breakpoints[trap_restore_idx].original_instruction = *(uint8_t*)(gdbserver_state.breakpoints[trap_restore_idx].address);                    
-          *(uint8_t*)(  gdbserver_state.breakpoints[trap_restore_idx].address) = 0xCF; // RST 08h
+
+          //extra check that the instruction is still the same (ie user didnt change it) - not foolproof but better than nothing
+          if (gdbserver_state.breakpoints[trap_restore_idx].original_instruction == *(uint8_t*)(gdbserver_state.breakpoints[trap_restore_idx].address))
+          {
+            *(uint8_t*)(  gdbserver_state.breakpoints[trap_restore_idx].address) = 0xCF; // RST 08h
+            log("[REST BP   *] @ $", gdbserver_state.breakpoints[trap_restore_idx].address );          
+          }
+          else
+          {
+            log("[*ERR RESTBP] @ $", gdbserver_state.breakpoints[trap_restore_idx].address );          
+            // something changed, remove the BP
+            gdbserver_state.breakpoints[trap_restore_idx].address = 0;
+          }
           gdbserver_state.trap_flags &= (uint8_t)~TRAP_FLAG_RESTORE_RST08H;
-          log("[REST BP   *] @ $", gdbserver_state.breakpoints[trap_restore_idx].address );          
       }
 //      else
       //{
@@ -102,8 +113,20 @@ void rst8_c_trap(void)
 
         if (gdbserver_state.breakpoints[i].address) {
             // Restore original instructions in case of dissasembly
-            *(uint8_t*)(gdbserver_state.breakpoints[i].address) = gdbserver_state.breakpoints[i].original_instruction;
-            log("[REST INST  ] @ $", gdbserver_state.breakpoints[i].address );          
+
+            //extra check that there is an RST08 here (ie user didnt change it) - not foolproof but better than nothing
+            if (*(uint8_t*)(gdbserver_state.breakpoints[i].address) == 0xCF)
+            {
+              *(uint8_t*)(gdbserver_state.breakpoints[i].address) = gdbserver_state.breakpoints[i].original_instruction;
+              log("[REST INST  ] @ $", gdbserver_state.breakpoints[i].address );          
+            }
+            else
+            {
+              log("[*ERR RESTIN] @ $", gdbserver_state.breakpoints[i].address );          
+              // something changed, remove the BP
+              gdbserver_state.breakpoints[i].address = 0;
+              continue;
+            }
 
             //Check if we hit the BP
             if (gdbserver_state.breakpoints[i].address == (ret_addr - 1)) {
