@@ -311,7 +311,7 @@ static uint8_t process_packet()  __z88dk_callee
 
                     b->address = 0;
                     // restore original instruction
-                    *(uint8_t*)address = b->original_instruction;
+                    //*(uint8_t*)address = b->original_instruction;
                     write_ok();
                     return 1;
                 }
@@ -329,10 +329,10 @@ static uint8_t process_packet()  __z88dk_callee
                     }
 
                     b->address = address;
-                    b->original_instruction = *(uint8_t*)address;
+                    //b->original_instruction = *(uint8_t*)address;
 
                     //Only insert the RST08 if we are not already on this BP (otherwise it will be done using TRAP_FLAG_RESTORE_RST08H )
-                    if (address != gdbserver_state.registers[REGISTERS_PC]){
+/*                    if (address != gdbserver_state.registers[REGISTERS_PC]){
                         *(uint8_t*)address = 0xCF; // RST 08h
                         if (*(uint8_t*)address != 0xCF)
                         {
@@ -340,7 +340,8 @@ static uint8_t process_packet()  __z88dk_callee
                             b->address = 0;
                             goto error;
                         }
-                    }
+                    } */
+
                     write_ok();
                     return 1;
                 }
