@@ -28,26 +28,22 @@ struct gdbserver_state_t
 {
     // Offset: 0
     uint16_t registers[REGISTERS_COUNT]; /* sp, pc, hl, de, bc, af, ix, iy */
-    // Offset: 12
-    uint8_t rst8_handler[80];
-    // Offset: 92
-    int server_socket;
-    // Offset: 94
-    int client_socket;
-    // Offset: 96
+    // Offset: 16 (if REGISTER count is changed, this must be updated)
     struct {
         uint8_t page;
         uint16_t handler;
         uint16_t next_address;
         uint16_t address;
     } trap_handler;
-    // Offset: 103
-    uint8_t trap_flags;
+    // Offset: 23
+    uint8_t trap_flags; //VOLATILE ???
+    // Offset: 24
+    struct breakpoint_t temporary_breakpoint;
+
     // Offsets of these is not important
     uint8_t buffer[128];
     uint8_t w_buffer[128];
     struct breakpoint_t breakpoints[MAX_BREAKPOINTS_COUNT];
-    struct breakpoint_t temporary_breakpoint;
     // Protocol flags (safe to append here; offsets above are the only critical ones)
     uint8_t no_ack_mode; // when set, don't send/expect '+' acks
 };

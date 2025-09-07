@@ -1,4 +1,3 @@
-defc v_rst8_handler = 0x3B02
 defc gdbserver_state = 0x3B03
 defc gdbserver_registers = gdbserver_state + 0
 

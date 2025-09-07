@@ -21,7 +21,6 @@ uint8_t server_init(void)
     #ifdef TARGET_PCW_DART
     //rst8_install();
     #endif
-    gdbserver_state.server_socket = 1;
     return 0;
 }
 
@@ -114,7 +113,6 @@ void server_write_packet(const char *data)
 uint8_t server_listen()
 {
     // Serial has no concept of listen/accept; treat as always connected
-    gdbserver_state.client_socket = 1;
     return 0;
 }
 

@@ -33,6 +33,8 @@ ENDIF
     EXTERN _rsx_c_banner
     EXTERN _rst8_install
     EXTERN _dart_init
+
+    ;EXTERN _log
     
 
     PRINT_STRING equ 9
@@ -67,7 +69,7 @@ LOADER:
 ; END RSX header !!!!!
 
 
-; Transient execution entry when run as a COM (GENCOM may execute init code)
+; Transient execution entry when run as a COM (GENCOM may execute init code) ?????
 
 ftest:
     mov a,c
@@ -99,6 +101,14 @@ bdos60_init:
     lxi d,rsx60msg
     call NEXT
 
+    ; Push arguments for log(msg2, ftest)
+    ;lxi     h, ftest        ; HL = ftest
+    ;push    h               ; push address (void *addr)
+    ;lxi     h, msg2         ; HL = msg2
+    ;push    h               ; push pointer (const char *msg)
+    ;call    _log            ; call the C function
+    ; The C function will clean up the stack
+
     jmp restore_stack_and_ret
 
 not_bdos60:
@@ -119,10 +129,11 @@ handle:                       ; nothing calls this right now, as this was jut to
 restore_stack_and_ret:
     lhld ret_stack            ; restore stack
     sphl
-    lxi h,0x35
+    lxi h,0x35         ; CP/M Plus version request 
     ret
 
 msg: defb "ZDBG RSX body$"
+;msg2: defb "Installed @ $"
 rsx60msg: defb "RSX: GDB Server Initialised",13,10,"$"
 
 ret_stack: dw 0

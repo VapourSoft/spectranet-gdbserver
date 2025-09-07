@@ -23,6 +23,8 @@ extern uint16_t rst8_sp_copy; // storage in pcw_rst8.asm
 */
 extern void printS(const char* str) __z88dk_fastcall ;
 
+volatile uint8_t enable_serial_interrupt = 0;
+
 uint16_t trap_restore_idx;
 
 
@@ -41,6 +43,9 @@ void log(const char *msg, uint16_t addr)
 
 void rst8_c_trap(void)
 {
+  //prevent monitor of serial for interrupts while in GDB server
+  enable_serial_interrupt = 0;
+
   // Print debug message to the screen using BDOS call
   printS("[RST08!     ]\r\n$");
 
@@ -172,11 +177,6 @@ void rst8_c_trap(void)
   base[4] = gdbserver_state.registers[REGISTERS_BC];
   base[5] = gdbserver_state.registers[REGISTERS_AF];
 
-
-  //Need to figure out how to restore the BP on resume ... we need the original instruction back (done above) but then when we resume how can we put the BP back ?
-  //maybe we set a special temp breakpoint for next instructiion, with flag to put BP back and then contiue automatically ?
-  // TODO: Shouldnt we restore the RST 08 if the breakpoint is still there, regardless of PC?
-
   // Check if we are on a breakpoint in case we need to restore RST 08
   if (enter_gdb_loop){  
     for (int i = 0; i < MAX_BREAKPOINTS_COUNT; i++) {
@@ -236,5 +236,7 @@ void rst8_c_trap(void)
     log("                                        [CONT > RST8] @ $", resume_addr );                  
   }
   base[6] = resume_addr;
+
+  enable_serial_interrupt = 1;  //allow execution to be interrupted by serial 0x03 again
 
 }

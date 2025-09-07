@@ -60,8 +60,12 @@ void dart_init(void) {
 	outb(DART_CTRL, 0x44);
 
 	// WR1 - No interrupts
-	outb(DART_CTRL, 1);
-	outb(DART_CTRL, 0x00);
+	//outb(DART_CTRL, 1);
+	//outb(DART_CTRL, 0x00);
+
+ 	// WR1 - Enable Rx interrupts (all characters), no Tx/ext status IRQs
+    outb(DART_CTRL, 1);
+    outb(DART_CTRL, 0x08);	
 
 	// WR3 - Rx 8 bits/char, Rx enable
 	outb(DART_CTRL, 3);
