@@ -6,6 +6,8 @@
 #include "utils.h"
 #include "z80_decode.h"
 
+//#define DEBUG_BP 1
+
 extern struct gdbserver_state_t gdbserver_state;
 
 // Assembly writes current SP to _rst8_sp_copy before C is invoked
@@ -123,7 +125,9 @@ void rst8_c_trap(void)
             if (*(uint8_t*)(gdbserver_state.breakpoints[i].address) == 0xCF)
             {
               *(uint8_t*)(gdbserver_state.breakpoints[i].address) = gdbserver_state.breakpoints[i].original_instruction;
-              log("[REST INST  ] @ $", gdbserver_state.breakpoints[i].address );          
+              #ifdef DEBUG_BP              
+                log("[REST INST  ] @ $", gdbserver_state.breakpoints[i].address );          
+              #endif
             }
             else
             {
@@ -138,7 +142,6 @@ void rst8_c_trap(void)
               trapped_breakpoint = i;
               gdbserver_state.trap_flags = (gdbserver_state.trap_flags | TRAP_FLAG_BREAK_HIT);
               log("[HIT      BP] @ $", gdbserver_state.breakpoints[i].address );          
-              //break;
             }
         }
       }
@@ -147,7 +150,7 @@ void rst8_c_trap(void)
 
 
   gdbserver_state.registers[REGISTERS_PC] = (uint16_t)(ret_addr - 1); // address of breakpoint instr (RST 08)
-  gdbserver_state.registers[REGISTERS_SP] = user_sp;                  // SP at trap (points to ret_addr)
+  gdbserver_state.registers[REGISTERS_SP] = user_sp + 2;              // SP as it was before the trap (as the RST08 would have pushed its return address onto the stack)
 
   //read registers from stack order they are saved on stack is important !! see pcw_rst8.asm
   gdbserver_state.registers[REGISTERS_IY] = base[0];
@@ -189,7 +192,9 @@ void rst8_c_trap(void)
           }
           else
           {
-            log("[SET BP     ] @ $", gdbserver_state.breakpoints[i].address );                    
+            #ifdef DEBUG_BP
+              log("[SET BP     ] @ $", gdbserver_state.breakpoints[i].address );                    
+            #endif
             
             //Record the existing instruction          
             gdbserver_state.breakpoints[i].original_instruction = *(uint8_t*)(gdbserver_state.breakpoints[i].address);
