@@ -6,7 +6,9 @@
 #include "utils.h"
 #include "z80_decode.h"
 
+#define DEBUG_RST 1
 //#define DEBUG_BP 1
+#define  DEBUG_LOG 1
 
 extern struct gdbserver_state_t gdbserver_state;
 
@@ -23,24 +25,33 @@ extern uint16_t rst8_sp_copy; // storage in pcw_rst8.asm
    5: AF
    6: ret_addr (address AFTER RST 08 byte)
 */
-extern void printS(const char* str) __z88dk_fastcall ;
+
+#ifdef DEBUG_RST
+  extern void printS(const char* str) __z88dk_fastcall ;
+#else
+  #define printS(x)
+#endif
+
+#ifdef DEBUG_LOG
+  //msg must be $ terminated!!!
+  void log(const char *msg, uint16_t addr)
+  {
+      char hexbuf[5];
+      printS(msg);
+      char_to_hex(hexbuf, (addr >> 8) & 0xFF);
+      char_to_hex(hexbuf + 2, addr & 0xFF);
+      hexbuf[4] = '$';
+      printS(hexbuf);      
+      printS("\r\n$");
+  }
+#else
+  #define log(x,y)
+#endif
+
 
 volatile uint8_t enable_serial_interrupt = 0;
 
 uint16_t trap_restore_idx;
-
-
-//msg must be $ terminated!!!
-void log(const char *msg, uint16_t addr)
-{
-    char hexbuf[5];
-    printS(msg);
-    char_to_hex(hexbuf, (addr >> 8) & 0xFF);
-    char_to_hex(hexbuf + 2, addr & 0xFF);
-    hexbuf[4] = '$';
-    printS(hexbuf);      
-    printS("\r\n$");
-}
 
 
 void rst8_c_trap(void)
@@ -211,8 +222,12 @@ void rst8_c_trap(void)
   // If step requested set temp breakpoint at next instruction
   if ((gdbserver_state.trap_flags & TRAP_FLAG_STEP_INSTRUCTION || gdbserver_state.trap_flags & TRAP_FLAG_RESTORE_RST08H ) /*&& !temp_breakpoint_hit */) {
 
-    // Use robust Z80 instruction decoder to find next instruction address
-    uint16_t next_addr = calculateStep();
+    // Used forced address from proprietory i instruction else use robust Z80 instruction decoder to find next instruction address
+    uint16_t next_addr = ( gdbserver_state.trap_flags & TRAP_FLAG_FORCE_ADDRESS ) ? gdbserver_state.temporary_breakpoint.address :  calculateStep() ;
+    
+    // Clear the force address flag (if it was set) as we have now applied it
+    gdbserver_state.trap_flags &= (uint8_t)~TRAP_FLAG_FORCE_ADDRESS;
+    
     gdbserver_state.temporary_breakpoint.address = next_addr;
     gdbserver_state.temporary_breakpoint.original_instruction = *(uint8_t*)next_addr;
     *(uint8_t*)next_addr = 0xCF; // RST 08h

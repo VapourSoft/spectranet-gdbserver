@@ -143,16 +143,6 @@ static uint8_t process_packet()  __z88dk_callee
     char command = *payload++;
     switch (command)
     {
-/*        case '!':
-        {
-            // Test trap trigger: execute RST 08 directly
-            __asm__("rst 0x08");
-            // Trap handler set registers & flag; reply with stop reason immediately
-            server_write_packet("T05");
-            // Clear flag so loop doesn't send again
-            gdbserver_state.trap_flags &= (uint8_t)~TRAP_FLAG_BREAK_HIT;
-            return 1;
-        } */
         case 'c':
         {
             // continue execution
@@ -164,24 +154,12 @@ static uint8_t process_packet()  __z88dk_callee
             gdbserver_state.trap_flags |= TRAP_FLAG_STEP_INSTRUCTION;
             return 0;
         }
-        case 'i':
+        case 'i': //this is non-standard but sent by z88dk-gdb when it wants to skip a call
         {
             // step over calls
             uint8_t offset = *payload - '0'; // simple atoi
-
-            uint16_t address = gdbserver_state.registers[REGISTERS_PC] + offset;
-            gdbserver_state.temporary_breakpoint.address = address;
-            gdbserver_state.temporary_breakpoint.original_instruction = *(uint8_t*)address;
-
-            *(uint8_t*)address = 0xCF; // RST 08h
-
-            if (*(uint8_t*)address != 0xCF)
-            {
-                // write didn't do anything, probably read only
-                gdbserver_state.temporary_breakpoint.address = 0;
-                // so trip as soon as we can
-                gdbserver_state.trap_flags |= TRAP_FLAG_STEP_INSTRUCTION;
-            }
+            gdbserver_state.temporary_breakpoint.address = gdbserver_state.registers[REGISTERS_PC] + offset;
+            gdbserver_state.trap_flags |= (TRAP_FLAG_STEP_INSTRUCTION | TRAP_FLAG_FORCE_ADDRESS); //Force this address (dont calculate) 
             return 0;
         }
         case 'q':
