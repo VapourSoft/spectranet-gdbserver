@@ -9,6 +9,7 @@
 
     EXTERN _rst8_c_trap
     EXTERN _rst8_sp_copy
+    EXTERN _our_sp_base
     EXTERN _dart_putc          ; serial output helper (C symbol dart_putc)
     EXTERN _enable_serial_interrupt ; flag to enable/disable serial interrupt checking in C code
 
@@ -40,6 +41,9 @@ orig_rst8_bytes:
 
 orig_rst38_bytes:
     defs 8              ; storage for original 8 bytes at 0038h (IM1)
+
+_our_sp_base:
+    defs 2              ; storage for our private stack base (so C can get at our pushed regs ) )
 
 _rst8_sp_copy:
     defs 2              ; space for saved SP
@@ -105,6 +109,7 @@ rst8_entry:
     push hl
     push ix
     push iy
+    ld (_our_sp_base),sp    
     call _rst8_c_trap
     pop iy
     pop ix
@@ -112,7 +117,7 @@ rst8_entry:
     pop de
     pop bc
     pop af
-    ld sp, (_rst8_sp_copy)
+    ld sp, (_rst8_sp_copy)  ; return address will have been set in the C code
     ei
     ret
 

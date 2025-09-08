@@ -14,6 +14,7 @@ extern struct gdbserver_state_t gdbserver_state;
 
 // Assembly writes current SP to _rst8_sp_copy before C is invoked
 extern uint16_t rst8_sp_copy; // storage in pcw_rst8.asm
+extern uint16_t our_sp_base;  // our stack base (highest address)
 
 /*
  Stack (lowest address first) when rst8_c_trap runs:
@@ -62,17 +63,13 @@ void rst8_c_trap(void)
   // Print debug message to the screen using BDOS call
   printS("[RST08!     ]\r\n$");
 
-//  char hexbuf[5];
-  // Stack layout after pushes (each push 2 bytes):
-  // push af, bc, de, hl, ix, iy  (last pushed at lowest address)
-  // Memory ascending: IY, IX, HL, DE, BC, AF, ret_addr
-  // Total pushed: 12 bytes registers + 2 ret = 14?  Actually ret was on stack before pushes.
-  // After pushes SP_new = original_SP - 12. rst8_sp_copy holds original SP (before pushes).
-  uint16_t *base = (uint16_t*)(rst8_sp_copy - 12);
-  uint16_t ret_addr = base[6];
 
-  // User SP before our pushes = (SP_new + 12) = rst8_sp_copy
-  uint16_t user_sp = rst8_sp_copy;
+
+  uint16_t *saved_registers = (uint16_t*)(our_sp_base);          // access registers saved on stack 
+  
+  // Obraint the return address from the original stack
+  uint16_t rst08_return_address = *(uint16_t*)rst8_sp_copy;      // get the RST08 return address (address after the RST 08 instruction)
+  uint16_t rst08_address = rst08_return_address - 1;             // address of the RST 08 instruction
 
   int trapped_breakpoint = -1;
   int enter_gdb_loop = 0;
@@ -81,7 +78,7 @@ void rst8_c_trap(void)
 
   // Handle temporary (single-step) breakpoint
   if (gdbserver_state.temporary_breakpoint.address &&
-      gdbserver_state.temporary_breakpoint.address == (ret_addr - 1)) {
+      gdbserver_state.temporary_breakpoint.address == (rst08_address)) {
     
       // We've hit the temp breakpoint for single-step
       gdbserver_state.trap_flags = (gdbserver_state.trap_flags | TRAP_FLAG_BREAK_HIT);      
@@ -149,7 +146,7 @@ void rst8_c_trap(void)
             }
 
             //Check if we hit the BP
-            if (gdbserver_state.breakpoints[i].address == (ret_addr - 1)) {
+            if (gdbserver_state.breakpoints[i].address == (rst08_address)) {
               trapped_breakpoint = i;
               gdbserver_state.trap_flags = (gdbserver_state.trap_flags | TRAP_FLAG_BREAK_HIT);
               log("[HIT      BP] @ $", gdbserver_state.breakpoints[i].address );          
@@ -160,16 +157,16 @@ void rst8_c_trap(void)
 
 
 
-  gdbserver_state.registers[REGISTERS_PC] = (uint16_t)(ret_addr - 1); // address of breakpoint instr (RST 08)
-  gdbserver_state.registers[REGISTERS_SP] = user_sp + 2;              // SP as it was before the trap (as the RST08 would have pushed its return address onto the stack)
+  gdbserver_state.registers[REGISTERS_PC] = rst08_address; // address of breakpoint instr (RST 08)
+  gdbserver_state.registers[REGISTERS_SP] = rst8_sp_copy  + 2;              // SP as it was before the trap (as the RST08 would have pushed its return address onto the stack)
 
   //read registers from stack order they are saved on stack is important !! see pcw_rst8.asm
-  gdbserver_state.registers[REGISTERS_IY] = base[0];
-  gdbserver_state.registers[REGISTERS_IX] = base[1];  
-  gdbserver_state.registers[REGISTERS_HL] = base[2];
-  gdbserver_state.registers[REGISTERS_DE] = base[3];
-  gdbserver_state.registers[REGISTERS_BC] = base[4];
-  gdbserver_state.registers[REGISTERS_AF] = base[5];
+  gdbserver_state.registers[REGISTERS_IY] = saved_registers[0];
+  gdbserver_state.registers[REGISTERS_IX] = saved_registers[1];  
+  gdbserver_state.registers[REGISTERS_HL] = saved_registers[2];
+  gdbserver_state.registers[REGISTERS_DE] = saved_registers[3];
+  gdbserver_state.registers[REGISTERS_BC] = saved_registers[4];
+  gdbserver_state.registers[REGISTERS_AF] = saved_registers[5];
 
   //Only enter GDB server loop if we hit a breakpoint or step (not for trap RST 08 restore)
   if (enter_gdb_loop )
@@ -184,12 +181,12 @@ void rst8_c_trap(void)
   }
 
   // Write back modified registers to stack so they are restored by the pops/ret in rst8_entry
-  base[0] = gdbserver_state.registers[REGISTERS_IY];
-  base[1] = gdbserver_state.registers[REGISTERS_IX];
-  base[2] = gdbserver_state.registers[REGISTERS_HL];
-  base[3] = gdbserver_state.registers[REGISTERS_DE];
-  base[4] = gdbserver_state.registers[REGISTERS_BC];
-  base[5] = gdbserver_state.registers[REGISTERS_AF];
+  saved_registers[0] = gdbserver_state.registers[REGISTERS_IY];
+  saved_registers[1] = gdbserver_state.registers[REGISTERS_IX];
+  saved_registers[2] = gdbserver_state.registers[REGISTERS_HL];
+  saved_registers[3] = gdbserver_state.registers[REGISTERS_DE];
+  saved_registers[4] = gdbserver_state.registers[REGISTERS_BC];
+  saved_registers[5] = gdbserver_state.registers[REGISTERS_AF];
 
   // Check if we are on a breakpoint in case we need to restore RST 08
   if (enter_gdb_loop){  
@@ -242,20 +239,22 @@ void rst8_c_trap(void)
 
   // Determine how to resume: use trapped_breakpoint or temp_breakpoint state
   uint16_t resume_addr = 0;
-  if (gdbserver_state.registers[REGISTERS_PC] != (uint16_t)(ret_addr - 1)) {
+  if (gdbserver_state.registers[REGISTERS_PC] != rst08_address) {
     // User changed PC in GDB, resume at new PC
     resume_addr = gdbserver_state.registers[REGISTERS_PC];
     log("                                        [CONT NEW PC] @ $", resume_addr );          
   } else if (gdbserver_state.trap_flags & TRAP_FLAG_BREAK_HIT ) {
     // Resume at the breakpoint address (original instruction restored)
-    resume_addr = (uint16_t)(ret_addr - 1);
+    resume_addr = rst08_address;
     log("                                        [CONT       ] @ $", resume_addr );              
   } else {
     // Explicit RST 08 in user code: resume after RST 08
-    resume_addr = ret_addr;
+    resume_addr = rst08_return_address;
     log("                                        [CONT > RST8] @ $", resume_addr );                  
   }
-  base[6] = resume_addr;
+  
+//  rst8_sp_copy_base[6] = resume_addr;
+  ((uint16_t*)rst8_sp_copy)[0] = resume_addr; // set return address on the stack 
 
   enable_serial_interrupt = 1;  //allow execution to be interrupted by serial 0x03 again
 
