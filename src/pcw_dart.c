@@ -6,6 +6,9 @@
 #include <stdio.h>
 #endif
 
+#define WR5_DTR_ON  0XEA 
+#define WR5_DTR_OFF 0X6A
+
 
 // PCW Z80 DART ports (status/command at 0xE1, data at 0xE0)
 #define DART_DATA   0xE0
@@ -31,6 +34,8 @@ __sfr __at (0xE1) DART_CTRL_PORT;
 // Forward static prototypes
 static uint8_t inb(uint8_t port);
 static void outb(uint8_t port, uint8_t val);
+
+volatile uint8_t wasInterrupt = 0;
 
 static uint8_t inb(uint8_t port) {
 	if (port == DART_DATA) return DART_DATA_PORT;
@@ -65,7 +70,7 @@ void dart_init(void) {
 
  	// WR1 - Enable Rx interrupts (all characters), no Tx/ext status IRQs
     outb(DART_CTRL, 1);
-    outb(DART_CTRL, 0x08);	
+    outb(DART_CTRL, 0x18);	
 
 	// WR3 - Rx 8 bits/char, Rx enable
 	outb(DART_CTRL, 3);
@@ -73,7 +78,7 @@ void dart_init(void) {
 
 	// WR5 - DTR on, Tx 8 bits, Tx enable, RTS on
 	outb(DART_CTRL, 5);
-	outb(DART_CTRL, 0x6A); 
+	outb(DART_CTRL, WR5_DTR_OFF); 
 
 	/*
 	// SEND BREAK to try to reset and connect MODEM
@@ -90,12 +95,14 @@ void dart_init(void) {
 
 }
 
-void wait_dart_rx_ready(void) {
+
+
+inline void wait_dart_rx_ready(void) {
 	// Wait for a received character, handling DTR as in the original asm.
 	// Returns 1 when data is available.
 	static uint8_t dtr_raised = 0;
 	
-	DI;
+//	DI; 						// interrupts should be disabled in GDB loop anyway		
 
 	while (1) {
 		uint8_t status = inb(DART_CTRL);
@@ -103,17 +110,17 @@ void wait_dart_rx_ready(void) {
 			// Data available, clear DTR if we raised it
 			if (dtr_raised) {
 				outb(DART_CTRL, 5);        // Select WR5
-				outb(DART_CTRL, 0x2A);     // WR5 DTR off (0x2A)
+				outb(DART_CTRL, WR5_DTR_OFF);     // WR5 DTR off (0x2A)
 				dtr_raised = 0;
 			}
 			//enable interrupts
-			EI;
+//			EI;							interrupts should be disabled in GDB loop anyway
 			return;
 		} else {
 			// No data, raise DTR if not already done
 			if (!dtr_raised) {
 				outb(DART_CTRL, 5);        // Select WR5
-				outb(DART_CTRL, 0x6A);     // WR5 DTR on (0x6A)
+				outb(DART_CTRL, WR5_DTR_ON);     // WR5 DTR on (0x6A)
 				dtr_raised = 1;
 			}
 			// Loop again
@@ -121,11 +128,19 @@ void wait_dart_rx_ready(void) {
 	}
 }
 
+extern void printS(const char* str) __z88dk_fastcall ;
+
 uint8_t dart_getc(void) {
-  return inb(DART_DATA);
+	if (wasInterrupt) 
+	{
+		printS("\n\rINTERRUPT DURING READ\r\n$");
+		wasInterrupt = 0;
+	}
+	wait_dart_rx_ready();	
+	return inb(DART_DATA);
 }
 
-void wait_dart_tx_ready(void) {
+inline void wait_dart_tx_ready(void) {
 	
 	// Simple busy-wait loop for a short delay (PCW compatible)
 	//for (volatile uint16_t i = 0; i < 100; ++i) {

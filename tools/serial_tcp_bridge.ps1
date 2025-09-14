@@ -11,7 +11,7 @@ param(
   [int]$TimeoutFailLimit = 2,
   [switch]$HoldRts = $true,
   [switch]$HoldDtr = $true,
-  [ValidateSet('None','RTS','RTSXONXOFF','XONXOFF')][string]$Handshake = 'None'
+  [ValidateSet('None','RTS','RTSXONXOFF','XONXOFF')][string]$Handshake = 'RTS'
 )
 
 function Get-Ascii([byte[]]$buf, [int]$len) {
@@ -86,7 +86,7 @@ try {
           }
         }
 
-        Start-Sleep -Milliseconds 1
+        #Start-Sleep -Milliseconds 1
       }
     } finally {
       Write-Host "Client disconnected from $($client.Client.RemoteEndPoint)"

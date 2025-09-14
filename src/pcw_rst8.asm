@@ -17,6 +17,7 @@
     DART_CTRL  equ  0xE1
 
     EXTERN _gdbserver_state
+    EXTERN _wasInterrupt
 
     defc gdbserver_trap_handler = _gdbserver_state + 16
     defc gdbserver_trap_flags = gdbserver_trap_handler + 7
@@ -140,6 +141,8 @@ im1_entry:
     jr z, no_rx
 
     ; Read received byte (clears Rx IRQ)
+    ld a,1
+    ld (_wasInterrupt),a
     in a,(DART_DATA)
     ld c,a
     ; Ctrl-C?

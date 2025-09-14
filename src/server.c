@@ -408,8 +408,6 @@ error:
 
 static inline char serial_getc_blocking(void)
 {
-    //while (!dart_rx_ready()) { }
-    wait_dart_rx_ready();
     return (char)dart_getc();
 }
 
@@ -475,6 +473,7 @@ uint8_t server_read_data()
                         printf("\nERR> ");
                         #endif
                         printS("\r\n> GDB Checksum Error! <\r\n$");            
+                        dart_putc('-');              // NACK host packet                        
                         write_error();
                     }
 
