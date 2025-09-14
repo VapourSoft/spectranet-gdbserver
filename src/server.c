@@ -9,18 +9,20 @@
 #ifdef TARGET_PCW_DART
 #endif
 
-//#include <string.h>
+
 #include <stddef.h>
-//#include <stdio.h>
+
+extern void printS(const char* str) __z88dk_fastcall ;
 
 extern void *__memcpy(void *dest, const void *src, size_t n) ;
+//extern void *__memset(void *s, int c, size_t n);
 
+//Called on startup to init state
 uint8_t server_init(void)
 {
-    //dart_init();
-    #ifdef TARGET_PCW_DART
-    //rst8_install();
-    #endif
+    //Clear state
+    //__memset(&gdbserver_state, 0, sizeof(gdbserver_state));
+
     return 0;
 }
 
@@ -86,9 +88,16 @@ static char *__strchr(const char *s, int c)
 }
 
 
-static void write_packet_bytes(const uint8_t *data, uint8_t num_bytes)
+void write_packet_bytes(const uint8_t *data, uint8_t num_bytes)
 {
     size_t i;
+
+    //It might be too late by now but sanity check size anyway
+    if (num_bytes + 4 > sizeof(gdbserver_state.w_buffer))
+    {
+        write_error();
+        return;
+    }
 
     char* wbuf = gdbserver_state.w_buffer;
 
@@ -128,6 +137,26 @@ static const struct {
 
 static void write_error()
 {
+    // print current input buffer to screen
+    printS("\n\rERR > buffer [$");
+
+    size_t buf_len = sizeof gdbserver_state.buffer;
+    char *hash = __strchr((const char*)gdbserver_state.buffer, '#');
+
+    char *term;
+    if (hash == NULL || hash > (char*)gdbserver_state.buffer + buf_len - 3) {
+        /* no '#' or checksum not fully present — ensure we place a '$' inside buffer */
+        term = (char*)gdbserver_state.buffer + buf_len - 1;
+    } else {
+        /* place '$' after hash */
+        term = (hash+3);
+    }
+
+    *term = '$'; /* CP/M BDOS print-string terminator */
+
+    printS((const char*)gdbserver_state.buffer);
+    printS("]\n\r$");
+
     server_write_packet("E01");
 }
 
@@ -136,7 +165,7 @@ static void write_ok()
     server_write_packet("OK");
 }
 
-static uint8_t process_packet()  __z88dk_callee
+static uint8_t process_packet()
 {
     char* payload = (char*)gdbserver_state.buffer;
 
@@ -147,6 +176,14 @@ static uint8_t process_packet()  __z88dk_callee
         {
             // continue execution
             return 0;
+        }
+        case 'k':
+        {
+            // DeZog send this to Mame on connect
+            // kill the program
+            //for now just ignore for compatibility
+            write_ok();
+            break;
         }
         case 's':
         {
@@ -211,6 +248,31 @@ static uint8_t process_packet()  __z88dk_callee
             write_ok();
             break;
         }
+        case 'P':
+        {
+            char* equals = __strchr(payload, '=');
+            if (equals == NULL)
+            {
+                goto error;
+            }
+
+            /* parse register index as hex (numeric index only) */
+            size_t name_len = (size_t)(equals - payload);
+            if (name_len == 0 || name_len > 2)   /* allow 1-2 hex digits for index */
+                goto error;
+
+            uint16_t reg_index = (uint16_t)from_hex_str(payload, (uint8_t)name_len);
+            if (reg_index >= REGISTERS_COUNT)   /* out of range */
+                goto error;
+
+            /* parse value (hex) after '=' */
+            payload = equals + 1;
+            uint16_t registerValue = (uint16_t)from_hex_str(payload, (uint8_t)4);
+            gdbserver_state.registers[reg_index] = registerValue;
+
+            write_ok();
+            break;
+        }
         case 'm':
         {
             // read memory
@@ -226,8 +288,11 @@ static uint8_t process_packet()  __z88dk_callee
                 uint8_t* mem_offset = (uint8_t*)from_hex_str(payload, comma - payload);
                 comma++;
                 uint16_t mem_size = from_hex_str(comma, strlen(comma));
+                if (mem_size > ((sizeof(gdbserver_state.buffer)-4) / 2))
+                    goto error;
+
                 to_hex(mem_offset, gdbserver_state.buffer, mem_size);
-                write_packet_bytes(gdbserver_state.buffer, mem_size * 2);
+                write_packet_bytes(gdbserver_state.buffer, (uint8_t)(mem_size * 2));
             }
             break;
         }
@@ -249,7 +314,7 @@ static uint8_t process_packet()  __z88dk_callee
 
             uint8_t* mem_offset = (uint8_t*)from_hex_str(payload, comma - payload);
             uint16_t mem_size = from_hex_str(comma + 1, colon - comma - 1);
-            from_hex(colon + 1, gdbserver_state.buffer, mem_size * 2);
+            from_hex(colon + 1, gdbserver_state.buffer, (uint8_t)(mem_size * 2));
             __memcpy((uint8_t*)mem_offset, gdbserver_state.buffer, mem_size);
             write_ok();
             break;
@@ -298,9 +363,11 @@ static uint8_t process_packet()  __z88dk_callee
             {
                 for (uint8_t i = 0; i < MAX_BREAKPOINTS_COUNT; i++)
                 {
+                    //printS(">BP ADD<\r\n$");
                     struct breakpoint_t* b = &gdbserver_state.breakpoints[i];
                     if (b->address)
                     {
+                        //printS(">FOUND BP<\r\n$");
                         continue;
                     }
 
@@ -321,9 +388,11 @@ static uint8_t process_packet()  __z88dk_callee
                     write_ok();
                     return 1;
                 }
+                printS("[OUT OF BPS!]\r\n$");
+                goto error;
             }
 
-            goto error;
+
         }
         default:
         {
@@ -359,7 +428,7 @@ uint8_t server_read_data()
             printf("\nIN > $");
             #endif
             uint8_t read_offset = 0;
-            while(1)
+            while(read_offset < sizeof(gdbserver_state.buffer) - 1)
             {
                 in = serial_getc_blocking();
                 #ifdef DEBUG
@@ -405,6 +474,7 @@ uint8_t server_read_data()
                         #ifdef DEBUG
                         printf("\nERR> ");
                         #endif
+                        printS("\r\n> GDB Checksum Error! <\r\n$");            
                         write_error();
                     }
 
@@ -415,6 +485,10 @@ uint8_t server_read_data()
                     gdbserver_state.buffer[read_offset++] = in;
                 }
             }
+            // overflow
+            printS("\r\n> GDB Buffer Overflow! <\r\n$");
+            write_error();
+            return 1;
         }
     }
 

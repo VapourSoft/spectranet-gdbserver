@@ -5,15 +5,18 @@
 
 #define MAX_BREAKPOINTS_COUNT (8)
 // Order must match XML feature description
-#define REGISTERS_SP (0)
-#define REGISTERS_PC (1)
-#define REGISTERS_HL (2)
-#define REGISTERS_DE (3)
-#define REGISTERS_BC (4)
-#define REGISTERS_AF (5)
-#define REGISTERS_IX (6)
-#define REGISTERS_IY (7)
-#define REGISTERS_COUNT (8)
+typedef enum {
+    REGISTERS_SP = 0,
+    REGISTERS_PC,
+    REGISTERS_HL,
+    REGISTERS_DE,
+    REGISTERS_BC,
+    REGISTERS_AF,
+    REGISTERS_IX,
+    REGISTERS_IY,
+    REGISTERS_COUNT
+} register_index_t;
+
 
 struct breakpoint_t {
     uint16_t address;

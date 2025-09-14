@@ -5,12 +5,15 @@
 #include "pcw_dart.h"
 #include "utils.h"
 #include "z80_decode.h"
+#include <stddef.h>
 
 #define DEBUG_RST 1
 //#define DEBUG_BP 1
 #define  DEBUG_LOG 1
 
 extern struct gdbserver_state_t gdbserver_state;
+
+extern void *__memcpy(void *dest, const void *src, size_t n) ;
 
 // Assembly writes current SP to _rst8_sp_copy before C is invoked
 extern uint16_t rst8_sp_copy; // storage in pcw_rst8.asm
@@ -173,7 +176,13 @@ void rst8_c_trap(void)
   {
     printS("[    GDB    ]\r\n$");
     // Always tell GDB we've stopped (breakpoint or step)
-    server_write_packet("T05thread:p01.01;");
+    // Compose the packet with PC as little-endian 16-bit hex in one call
+    
+    char packet[32];
+    __memcpy(packet,  "T05thread:p01.01;01:", 20);
+    to_hex((uint8_t*)&gdbserver_state.registers[REGISTERS_PC], packet + 20, 4);
+    write_packet_bytes(packet, 20 + 4);
+
     // Enter GDB server main loop (wait for GDB connection/commands)
     while (server_read_data()) {
       // loop until GDB says continue/step

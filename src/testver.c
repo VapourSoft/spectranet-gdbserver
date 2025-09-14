@@ -8,19 +8,14 @@
  */
 #include <stdio.h>
 
+void execute_loader(void) {
 
-// Global storage for inline assembly to deposit HL result. 
-static volatile unsigned int bdos_version_word;
-
-unsigned int bdos_get_version(void) {
-    // BDOS function 12: C=12, CALL 5, returns version in HL.
-       //We store HL into bdos_version_word and return it. 
     __asm
-        ld c,12
+        ld c,60     ; BDOS function 60
+        ld de,2     ; execute loader
+        ld hl,0     ; no prams we read from the command line used to execute this program
         call 5
-        ld (_bdos_version_word),hl
     __endasm; 
-    return bdos_version_word; 
 }
 
 
@@ -42,7 +37,12 @@ int main(void) {
     // Call RSX install/init via BDOS 60
     printf("Initialising...\r\n");
     call_rsx_install();
-
     printf("RSX Installed\n");
+
+    //printf("Execute Loader\n");
+    //execute_loader();
+    //printf("Loader Executed\n");
+    
     return 0;
 }
+

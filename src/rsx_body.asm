@@ -33,7 +33,9 @@ ENDIF
     EXTERN _rsx_c_banner
     EXTERN _rst8_install
     EXTERN _dart_init
+    ;EXTERN _server_init
 
+    EXTERN RunENTRY
     ;EXTERN _log
     
 
@@ -75,21 +77,40 @@ ftest:
     mov a,c
     cpi 60
     jz  bdos60_handler
-    cpi 12                   ; version request BDOS intercept
-    jz  handle              
+    ;cpi 12                   ; version request BDOS intercept
+    ;jz  handle              
     jmp NEXT
 
 bdos60_handler:
     mov a,e
     cpi 1
     jz bdos60_init
+
+    cpi 2
+    jz loader
+
     jmp NEXT
+
+loader:
+    ;use our stack
+
+    lxi h,0
+    dad sp                    ; save stack pointer
+    shld ret_stack
+    lxi sp,loc_stack
+
+    call RunENTRY
+
+    jmp restore_stack_and_ret
 
 bdos60_init:
     lxi h,0
     dad sp                    ; save stack pointer
     shld ret_stack
     lxi sp,loc_stack
+
+    ; Call server init
+    ;CALL _server_init;
 
     ; Call pcw serial init
     call _dart_init
