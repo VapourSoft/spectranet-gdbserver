@@ -14,6 +14,10 @@ typedef enum {
     REGISTERS_AF,
     REGISTERS_IX,
     REGISTERS_IY,
+    SLOT_0,
+    SLOT_1,
+    SLOT_2,
+    SLOT_3,
     REGISTERS_COUNT
 } register_index_t;
 
@@ -30,20 +34,19 @@ struct breakpoint_t {
 struct gdbserver_state_t
 {
     // Offset: 0
-    uint16_t registers[REGISTERS_COUNT]; /* sp, pc, hl, de, bc, af, ix, iy */
-    // Offset: 16 (if REGISTER count is changed, this must be updated)
     struct {
         uint8_t page;
         uint16_t handler;
         uint16_t next_address;
         uint16_t address;
     } trap_handler;
-    // Offset: 23
+    // Offset: 7
     uint8_t trap_flags; //VOLATILE ???
-    // Offset: 24
+    // Offset: 8
     struct breakpoint_t temporary_breakpoint;
 
     // Offsets of these is not important
+    uint16_t registers[REGISTERS_COUNT]; /* sp, pc, hl, de, bc, af, ix, iy */    
     uint8_t buffer[128];
     uint8_t w_buffer[128];
     struct breakpoint_t breakpoints[MAX_BREAKPOINTS_COUNT];

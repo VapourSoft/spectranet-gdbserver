@@ -19,8 +19,8 @@
 #define RR0_RX_AVAIL 0x01
 #define RR0_TX_EMPTY 0x04
 
-#define DI __asm di __endasm
-#define EI __asm ei __endasm
+//#define DI __asm di __endasm
+//#define EI __asm ei __endasm
 
 // Additional PCW-specific ports for baud generator
 __sfr __at (0xE4) DART_BRG_TX_LO;

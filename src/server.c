@@ -213,6 +213,10 @@ static uint8_t process_packet()
                     "<reg name=\"af\" bitsize=\"16\" type=\"int\"/>"
                     "<reg name=\"ix\" bitsize=\"16\" type=\"int\"/>"
                     "<reg name=\"iy\" bitsize=\"16\" type=\"int\"/>"
+/*                  "<reg name=\"s0\" bitsize=\"16\" type=\"int\"/>"  Need to update checksum!
+                    "<reg name=\"s1\" bitsize=\"16\" type=\"int\"/>"
+                    "<reg name=\"s2\" bitsize=\"16\" type=\"int\"/>"
+                    "<reg name=\"s3\" bitsize=\"16\" type=\"int\"/>" */
                     "</feature><architecture>z80</architecture></target>#2f");
                 return 1;
             }
@@ -237,6 +241,7 @@ static uint8_t process_packet()
         case 'g':
         {
             // dump registers
+            updateMappedPages();
             to_hex(gdbserver_state.registers, gdbserver_state.buffer, REGISTERS_COUNT * 2);
             write_packet_bytes(gdbserver_state.buffer, REGISTERS_COUNT * 4);
             break;
@@ -494,3 +499,79 @@ uint8_t server_read_data()
     return 1;
 }
 
+
+__sfr __at (0xF0) SLOT_0_PORT;
+__sfr __at (0xF1) SLOT_1_PORT;
+__sfr __at (0xF2) SLOT_2_PORT;
+
+void setPage(uint8_t slot, uint8_t page)
+{
+    switch (slot)
+    {
+        page = page | 0x80;
+        case 0:
+            SLOT_0_PORT = page;
+            break;
+        case 1:
+            SLOT_1_PORT = page;
+            break;
+        case 2:
+            SLOT_2_PORT = page;
+            break;
+    }
+}
+
+#define TEST_SLOT 0x0002u
+#define FP_OFF 0x3FE8u   // last 8 bytes of a 16K slot window
+
+void updateMappedPages()
+{
+    // 8-byte marker (includes NUL)
+    static const uint8_t fingerprint[8] = { '>', 'Z', 'D', 'B', 'G', 'F', '?', '<' };
+
+    // Address to check in TEST_SLOT 
+    //volatile  uint8_t* fp_test = (uint8_t*)((uint16_t)(TEST_SLOT * 0x4000u + FP_OFF));
+
+    for (uint8_t slot = 0; slot < 3; ++slot)
+    {
+        // Address to write in the currently mapped page for this slot
+        volatile uint8_t* fp_orig = (uint8_t*)((uint16_t)(slot * 0x4000u + FP_OFF));
+
+        uint8_t saved_bytes[8];
+        __memcpy(saved_bytes, fp_orig, 8);
+        __memcpy(fp_orig, fingerprint, 8);
+
+        uint8_t slotFound = 0;
+
+        // Cycle through mapping each physical page into TEST_SLOT (2)
+        for (uint8_t page = 0; page < 128; ++page)
+        {
+            setPage(slot, page);
+
+            // Compare exact 8 bytes at the same offset within the TEST_SLOT window
+            uint8_t match = 1;
+            for (uint8_t k = 0; k < 8; ++k) {
+                if (fp_orig[k] != fingerprint[k]) { match = 0; break; }
+            }
+
+            if (match)
+            {
+                // Record the 7-bit page number (hardware typically uses bit7 as map-enable)
+                gdbserver_state.registers[SLOT_0 + slot] = (uint16_t)page;
+                // restore original contents
+                __memcpy(fp_orig, saved_bytes, 8);
+                slotFound = 1;
+                break;
+            }
+        }
+        if (slotFound == 0)
+        {
+            // Not found, mark as invalid - we have messed with the memory as we couldt restore the fingerprint or the page!
+            gdbserver_state.registers[SLOT_0 + slot] = 0xFFFF;
+        }
+    }
+    // Slot 2 should now contain the original contents of slot 2
+
+    // Slot 3 is fixed
+    gdbserver_state.registers[SLOT_3] = 7;
+}

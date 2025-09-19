@@ -75,7 +75,7 @@ LOADER:
 
 ftest:
     mov a,c
-    cpi 60
+    cpi 0x3C
     jz  bdos60_handler
     ;cpi 12                   ; version request BDOS intercept
     ;jz  handle              

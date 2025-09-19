@@ -7,9 +7,13 @@
 #include "z80_decode.h"
 #include <stddef.h>
 
-#define DEBUG_RST 1
+/**
+ * @brief Note that printing to the screen using BDOS will lock up if the BDOS is being ddebugged!!
+ * 
+ */
+//#define DEBUG_RST 1
 //#define DEBUG_BP 1
-#define  DEBUG_LOG 1
+//#define  DEBUG_LOG 1
 
 extern struct gdbserver_state_t gdbserver_state;
 
@@ -62,11 +66,6 @@ void rst8_c_trap(void)
 {
   //prevent monitor of serial for interrupts while in GDB server
   enable_serial_interrupt = 0;
-
-  // Print debug message to the screen using BDOS call
-  printS("[RST08!     ]\r\n$");
-
-
 
   uint16_t *saved_registers = (uint16_t*)(our_sp_base);          // access registers saved on stack 
   
@@ -124,6 +123,10 @@ void rst8_c_trap(void)
   {
     enter_gdb_loop = 1; //it must be either a breakpoint or hard coded RST 08 trap
   }
+
+  // Print debug message (after restoring any instructions incase BDOS is breakpointed !) to the screen using BDOS call
+  printS("[RST08!     ]\r\n$");
+
 
   if (enter_gdb_loop)
   {

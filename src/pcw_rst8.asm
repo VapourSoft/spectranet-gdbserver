@@ -19,8 +19,8 @@
     EXTERN _gdbserver_state
     EXTERN _wasInterrupt
 
-    defc gdbserver_trap_handler = _gdbserver_state + 16
-    defc gdbserver_trap_flags = gdbserver_trap_handler + 7
+    defc gdbserver_trap_handler = _gdbserver_state + 7
+    defc gdbserver_trap_flags = gdbserver_trap_handler + 1
     defc temporary_breakpoint = gdbserver_trap_flags + 1 
     defc original_instruction = temporary_breakpoint + 2
 
