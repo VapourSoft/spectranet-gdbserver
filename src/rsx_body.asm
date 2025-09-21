@@ -32,7 +32,7 @@ ENDIF
 
     EXTERN _rsx_c_banner
     EXTERN _rst8_install
-    EXTERN _dart_init
+    EXTERN INITCOMS
     ;EXTERN _server_init
 
     EXTERN RunENTRY
@@ -113,7 +113,7 @@ bdos60_init:
     ;CALL _server_init;
 
     ; Call pcw serial init
-    call _dart_init
+    call INITCOMS
 
     ; Call rst8 install
     call _rst8_install

@@ -34,24 +34,17 @@ struct breakpoint_t {
 struct gdbserver_state_t
 {
     // Offset: 0
-    struct {
-        uint8_t page;
-        uint16_t handler;
-        uint16_t next_address;
-        uint16_t address;
-    } trap_handler;
-    // Offset: 7
-    uint8_t trap_flags; //VOLATILE ???
-    // Offset: 8
-    struct breakpoint_t temporary_breakpoint;
+    uint8_t trap_flags;            // (1 byte)
 
+    // Offset: 1
+    struct breakpoint_t temporary_breakpoint;
+    
     // Offsets of these is not important
-    uint16_t registers[REGISTERS_COUNT]; /* sp, pc, hl, de, bc, af, ix, iy */    
+    struct breakpoint_t breakpoints[MAX_BREAKPOINTS_COUNT];
+    uint16_t registers[REGISTERS_COUNT];      // REGISTERS_COUNT * 2 bytes
     uint8_t buffer[128];
     uint8_t w_buffer[128];
-    struct breakpoint_t breakpoints[MAX_BREAKPOINTS_COUNT];
-    // Protocol flags (safe to append here; offsets above are the only critical ones)
-    uint8_t no_ack_mode; // when set, don't send/expect '+' acks
+    uint8_t no_ack_mode;
 };
 
 #define TRAP_FLAG_RESTORE_RST08H (0x01)

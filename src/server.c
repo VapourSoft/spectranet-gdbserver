@@ -13,6 +13,7 @@
 #include <stddef.h>
 
 extern void printS(const char* str) __z88dk_fastcall ;
+extern void printC(const char c) __z88dk_fastcall ;
 
 extern void *__memcpy(void *dest, const void *src, size_t n) ;
 //extern void *__memset(void *s, int c, size_t n);
@@ -416,60 +417,59 @@ static inline char serial_getc_blocking(void)
     return (char)dart_getc();
 }
 
+enum { JUNK, PACKET_INPROGRESS, CHECKSUM_B1, CHECKSUM_B2, PACKET_COMPLETE } readState;
+
 uint8_t server_read_data()
 {
-    char in = serial_getc_blocking();
-    #ifdef DEBUG
-    if (in != '$') 
-        putchar((unsigned char)in);
-    #endif
-    switch (in)
+    char checksum[2];
+    uint8_t checksum_value;
+    uint8_t sent_checksum;
+    
+    uint8_t read_offset = 0;
+    readState = JUNK;
+
+    while(read_offset < sizeof(gdbserver_state.buffer) - 1)
     {
-        case '$':
+        char in = serial_getc_blocking();
+        if (in == '$')
         {
-            #ifdef DEBUG
-            printf("\nIN > $");
-            #endif
-            uint8_t read_offset = 0;
-            while(read_offset < sizeof(gdbserver_state.buffer) - 1)
+            readState = PACKET_INPROGRESS;
+            checksum_value = 0;
+            read_offset=0;
+        }
+        else
+        {
+            switch ( readState )
             {
-                in = serial_getc_blocking();
-                #ifdef DEBUG
-                putchar((unsigned char)in);
-                #endif
-                if (in == '#')
+                case PACKET_INPROGRESS:
                 {
-                    gdbserver_state.buffer[read_offset] = 0;
-
-                    uint8_t checksum_value = 0;
-                    uint8_t sent_checksum = 0;
-
+                    if (in == '#')
+                        readState = CHECKSUM_B1;
+                    else
                     {
-                        char checksum[2];
-                        checksum[0] = serial_getc_blocking();
-                        checksum[1] = serial_getc_blocking();
-
-                        #ifdef DEBUG
-                        putchar((unsigned char)checksum[0]);
-                        putchar((unsigned char)checksum[1]);
-                        #endif
-
-                        {
-                            uint8_t* buff = gdbserver_state.buffer;
-
-                            for (uint8_t i = 0; i < read_offset; ++i)
-                                checksum_value += *buff++;
-                        }
-
-                        from_hex(checksum, &sent_checksum, 2);
+                        gdbserver_state.buffer[read_offset++] = in;
+                        checksum_value += in;
                     }
-
+                    break;
+                }
+                case CHECKSUM_B1:
+                {
+                    checksum[0] = in;
+                    readState = CHECKSUM_B2;
+                    break;
+                }
+                case CHECKSUM_B2:
+                {
+                    checksum[1] = in;
+                    from_hex(checksum, &sent_checksum, 2);       
+                    
                     if (checksum_value == sent_checksum)
                     {
                         #ifdef DEBUG
                             printf("\nOUT> ");
                         #endif
                         dart_putc('+');              // ACK host packet                        
+                        gdbserver_state.buffer[read_offset] = 0; // null terminate
                         return process_packet();
                     }
                     else
@@ -479,23 +479,17 @@ uint8_t server_read_data()
                         #endif
                         printS("\r\n> GDB Checksum Error! <\r\n$");            
                         dart_putc('-');              // NACK host packet                        
-                        write_error();
+                        //write_error();
+                        readState = JUNK;
                     }
-
-                    return 1;
-                }
-                else
-                {
-                    gdbserver_state.buffer[read_offset++] = in;
+                    break;
                 }
             }
-            // overflow
-            printS("\r\n> GDB Buffer Overflow! <\r\n$");
-            write_error();
-            return 1;
         }
     }
-
+    // overflow
+    printS("\r\n> GDB Buffer Overflow! <\r\n$");
+    write_error();
     return 1;
 }
 

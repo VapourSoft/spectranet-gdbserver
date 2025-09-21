@@ -13,7 +13,7 @@
  */
 //#define DEBUG_RST 1
 //#define DEBUG_BP 1
-//#define  DEBUG_LOG 1
+//#define DEBUG_LOG 1
 
 extern struct gdbserver_state_t gdbserver_state;
 

@@ -26,6 +26,25 @@ void printS(const char* str) __z88dk_fastcall
 
 }
 
+void printC(const char c) __z88dk_fastcall 
+{
+    c; // suppress unused warning
+    __asm
+        EXTERN NEXT 
+        PRINT_CHAR equ 2
+
+        ld  de,hl   ; DE = str        
+
+        mvi c,PRINT_CHAR
+
+        call NEXT  ; call the BDOS function
+        
+        
+    __endasm;
+
+}
+
+
 
 void rsx_c_banner(void)  {
 /*    __asm

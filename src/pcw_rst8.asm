@@ -10,8 +10,10 @@
     EXTERN _rst8_c_trap
     EXTERN _rst8_sp_copy
     EXTERN _our_sp_base
-    EXTERN _dart_putc          ; serial output helper (C symbol dart_putc)
     EXTERN _enable_serial_interrupt ; flag to enable/disable serial interrupt checking in C code
+
+    EXTERN ENABLEINTS
+    EXTERN DISABLEINTS
 
     DART_DATA  equ  0xE0
     DART_CTRL  equ  0xE1
@@ -19,8 +21,7 @@
     EXTERN _gdbserver_state
     EXTERN _wasInterrupt
 
-    defc gdbserver_trap_handler = _gdbserver_state + 7
-    defc gdbserver_trap_flags = gdbserver_trap_handler + 1
+    defc gdbserver_trap_flags = _gdbserver_state
     defc temporary_breakpoint = gdbserver_trap_flags + 1 
     defc original_instruction = temporary_breakpoint + 2
 
@@ -97,7 +98,10 @@ _rst8_restore:
 
 ; After RST 08 hardware pushes return addr, we push AF BC DE HL IX IY
 rst8_entry:
+
+    call DISABLEINTS
     di      ; good for stable debugging state 
+
     ; save current SP for C (before we push anything else beyond our fixed set)
     ld (_rst8_sp_copy),sp
 
@@ -119,6 +123,9 @@ rst8_entry:
     pop bc
     pop af
     ld sp, (_rst8_sp_copy)  ; return address will have been set in the C code
+
+    call ENABLEINTS
+
     ei
     ret
 
@@ -141,8 +148,8 @@ im1_entry:
     jr z, no_rx
 
     ; Read received byte (clears Rx IRQ)
-    ld a,1
-    ld (_wasInterrupt),a
+;    ld a,1
+;    ld (_wasInterrupt),a
     in a,(DART_DATA)
     ld c,a
     ; Ctrl-C?
@@ -150,9 +157,26 @@ im1_entry:
     jr nz, no_ctrl_c
 
     ; Skip if stepping / restoring
-    ld a,(gdbserver_trap_flags)
-    and STEPPING_MASK
-    jr nz, already_stepping
+    ;ld a,(gdbserver_trap_flags)
+    ;and STEPPING_MASK
+    ;jr nz, already_stepping
+
+
+    ;EXTERN NEXT 
+    EXTERN DISABLEINTS
+    ;PRINT_CHAR equ 2
+
+    ;push de
+    ;ld  e,'!'
+    ;mvi c,PRINT_CHAR
+    ;call NEXT  ; call the BDOS function
+    ;pop de
+    
+    call DISABLEINTS    ; disable further serial interrupts while we handle this one
+
+    ;ignore further serial interrupts until we re-enable them in C code
+    ld a,0
+    ld (_enable_serial_interrupt),a
 
     push hl
 
