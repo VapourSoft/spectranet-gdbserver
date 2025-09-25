@@ -64,22 +64,22 @@ rsx-c-prl: build
 #	@if [ ! -f src/sdcc_ix.o ]; then echo "ERROR: sdcc_ix.o not produced"; exit 1; fi	
 
 	@echo "Compiling C object files"
-	( cd src && zcc +cpm -DTARGET_PCW_DART -compiler=sdcc -clib=sdcc_ix -c rsx_cfunc.c -o rsx_cfunc.o ) || exit 1
+	( cd src && zcc +cpm -SO3 -DTARGET_PCW_DART -compiler=sdcc -clib=sdcc_ix -c rsx_cfunc.c -o rsx_cfunc.o ) || exit 1
 	@if [ ! -f src/rsx_cfunc.o ]; then echo "ERROR: rsx_cfunc.o not produced"; exit 1; fi	
 
-	(cd src && zcc +cpm -DTARGET_PCW_DART -compiler=sdcc -clib=sdcc_ix -c server.c utils.c -o server.o ) || exit 1
+	(cd src && zcc +cpm -SO3 -DTARGET_PCW_DART -compiler=sdcc -clib=sdcc_ix -c server.c utils.c -o server.o ) || exit 1
 	@if [ ! -f src/server.o ]; then echo "ERROR: server.o not produced"; exit 1; fi	
 
-	( cd src && zcc +cpm -DTARGET_PCW_DART -compiler=sdcc -clib=sdcc_ix -c pcw_dart.c -o pcw_dart.o ) || exit 1
+	( cd src && zcc +cpm -SO3 -DTARGET_PCW_DART -compiler=sdcc -clib=sdcc_ix -c pcw_dart.c -o pcw_dart.o ) || exit 1
 	@if [ ! -f src/pcw_dart.o ]; then echo "ERROR: pcw_dart.o not produced"; exit 1; fi	
 
-	( cd src && zcc +cpm -DTARGET_PCW_DART -compiler=sdcc -clib=sdcc_ix -c pcw_rst8.c -o pcw_rst8_c.o ) || exit 1
+	( cd src && zcc +cpm -SO3 -DTARGET_PCW_DART -compiler=sdcc -clib=sdcc_ix -c pcw_rst8.c -o pcw_rst8_c.o ) || exit 1
 	@if [ ! -f src/pcw_rst8_c.o ]; then echo "ERROR: pcw_rst8_c.o not produced"; exit 1; fi	
 
-	( cd src && zcc +cpm -DTARGET_PCW_DART -compiler=sdcc -clib=sdcc_ix -c state.c -o state.o ) || exit 1
+	( cd src && zcc +cpm -SO3 -DTARGET_PCW_DART -compiler=sdcc -clib=sdcc_ix -c state.c -o state.o ) || exit 1
 	@if [ ! -f src/state.o ]; then echo "ERROR: state.o not produced"; exit 1; fi	
 
-	( cd src && zcc +cpm -DTARGET_PCW_DART -compiler=sdcc -clib=sdcc_ix -c z80_decode.c -o z80_decode.o ) || exit 1
+	( cd src && zcc +cpm -SO3 -DTARGET_PCW_DART -compiler=sdcc -clib=sdcc_ix -c z80_decode.c -o z80_decode.o ) || exit 1
 	@if [ ! -f src/z80_decode.o ]; then echo "ERROR: z80_decode.o not produced"; exit 1; fi	
 
 # need to fix this - order of objects and everthing MUST be the same - should be defined once!
