@@ -69,7 +69,7 @@ void rst8_c_trap(void)
 
   uint16_t *saved_registers = (uint16_t*)(our_sp_base);          // access registers saved on stack 
   
-  // Obraint the return address from the original stack
+  // Obtain the return address from the original stack
   uint16_t rst08_return_address = *(uint16_t*)rst8_sp_copy;      // get the RST08 return address (address after the RST 08 instruction)
   uint16_t rst08_address = rst08_return_address - 1;             // address of the RST 08 instruction
 

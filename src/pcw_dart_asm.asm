@@ -5,6 +5,7 @@
     PUBLIC RECIEVEBYTE
 	PUBLIC ENABLEINTS
 	PUBLIC DISABLEINTS
+	PUBLIC CLEAR_DTR
 
     HWFC EQU 1 ;ENABLE HARDWARE FLOW CONTROL
 
@@ -98,6 +99,7 @@ IFDEF HWFC
 	JP Z,_FASTSETDTR
 
 	;immediately clear DTR
+CLEAR_DTR:
 	LD A,WR5		;Access register 5
 	OUT (STATUS),A
 	LD A,WR5DTROFF
@@ -257,24 +259,34 @@ ENDIF
 
 	RET                     ;Return from call to this subroutine
 
-ENABLEINTS:
+ENABLEINTS:	;clobber AF - leaves ints disabled
 	DI
-	PUSH AF
 	LD A,WR1
 	OUT (STATUS),A
 	LD A,WRREG1_INT
 	OUT (STATUS),A
-	POP AF
-	EI
+
+	; enable DTR so we can receive data
+	LD A,WR5		;Access register 5
+	OUT (STATUS),A
+	LD A,WR5DTRON
+	OUT (STATUS),A
+
 	RET
 
-DISABLEINTS:
+DISABLEINTS: ;clobber AF - leaves ints disabled
 	DI
-	PUSH AF
+
+	; disable DTR so we stop receiving data until ready
+	; enable DTR so we can receive data
+	LD A,WR5		;Access register 5
+	OUT (STATUS),A
+	LD A,WR5DTROFF
+	OUT (STATUS),A
+
 	LD A,WR1
 	OUT (STATUS),A
-	LD A,WRREG1_OFF
+	LD A,WRREG1_OFF	;turn off ints
 	OUT (STATUS),A
-	POP AF
-	EI
+
 	RET

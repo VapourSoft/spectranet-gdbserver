@@ -6,6 +6,7 @@
     PUBLIC rst8_entry
     PUBLIC im1_entry
     PUBLIC orig_rst38_bytes
+    PUBLIC _interrupt_depth
 
     EXTERN _rst8_c_trap
     EXTERN _rst8_sp_copy
@@ -14,6 +15,7 @@
 
     EXTERN ENABLEINTS
     EXTERN DISABLEINTS
+    EXTERN CLEAR_DTR
 
     DART_DATA  equ  0xE0
     DART_CTRL  equ  0xE1
@@ -25,14 +27,17 @@
     defc temporary_breakpoint = gdbserver_trap_flags + 1 
     defc original_instruction = temporary_breakpoint + 2
 
-    defc TRAP_FLAG_RESTORE_RST08H   =  0x01
     defc TRAP_FLAG_STEP_INSTRUCTION =  0x02
-    defc TRAP_FLAG_BREAK_HIT        =  0x04
 
-    defc STEPPING_MASK = TRAP_FLAG_RESTORE_RST08H + TRAP_FLAG_STEP_INSTRUCTION
 
     ; Use z88dk standard section names so code isn't lost / zeroed
     SECTION bss_user
+
+_interrupt_depth: 
+    defs 1              ; depth of nested interrupts (0 = not in ISR, >0 = in ISR)
+
+ints_enabled_flag:
+    defs 1              ; set to 1 if interrupts were enabled on entry to RST8, else 0
 
 safe_stack: 
     defs 256         ; 256 bytes for private stack
@@ -44,6 +49,12 @@ orig_rst8_bytes:
 orig_rst38_bytes:
     defs 8              ; storage for original 8 bytes at 0038h (IM1)
 
+orig_rst8_bytes_bank_0:
+    defs 8              ; storage for original 8 bytes at 0008h for bank 0
+
+orig_rst38_bytes_bank_0:
+    defs 8              ; storage for original 8 bytes at 0008h for bank 0
+
 _our_sp_base:
     defs 2              ; storage for our private stack base (so C can get at our pushed regs ) )
 
@@ -54,41 +65,95 @@ _rst8_sp_copy:
 
 ; Install: copy original bytes then patch with JP rst8_entry
 _rst8_install:
-    ; Hook RST 08
-    ld hl,0x0008
-    ld de,orig_rst8_bytes
-    ld bc,8
-    ldir
-    ld a,0xC3          ; JP opcode
-    ld (0x0008),a
-    ld hl,rst8_entry
-    ld (0x0009),hl
 
-    ;temp disable install of ISR for now
-    ;ret
+    di
+
+    ; do page 0 first
+    ld a, 0x80    
+    out (0xF0),a       ; switch to page 0
+
+    ; Hook RST 08
+    ld ix,0x0008    
+    ld hl,rst8_entry
+    ld de,orig_rst8_bytes_bank_0           
+    call _rst_install
 
     ; Hook RST 38 (IM1)
-    ld hl,0x0038
-    ld de,orig_rst38_bytes
-    ld bc,8
-    di                 ; Disable interrupts while patching; JP opcode    
-    ldir
-    ld a,0xC3    
-    ld (0x0038),a
+    ld ix,0x0038
     ld hl,im1_entry
-    ld (0x0039),hl
+    ld de,orig_rst38_bytes_bank_0           
+    call _rst_install    
+
+    ; go back and do TPA 4
+    ld a, 0x84
+    out (0xF0),a       ; switch to page        
+
+    ; Hook RST 08
+    ld ix,0x0008    
+    ld hl,rst8_entry
+    ld de,orig_rst8_bytes    
+    call _rst_install
+
+    ; Hook RST 38 (IM1)
+    ld ix,0x0038
+    ld hl,im1_entry
+    ld de,orig_rst38_bytes
+    call _rst_install    
+
+    xor a    
+    ld (_interrupt_depth),a ; reset interrupt depth counter
+
     ei
+    ret
+
+    ; copy 8 bytes from ix to de, patch with JP hl
+    ; ix = RST location address to patch    - preserved
+    ; de = dest of 8 original bytes to copy - clobbered
+    ; hl = address of my handler - preserved
+    ; bc clobbered
+_rst_install:
+    ;copy 8 bytes from hl to de
+    push hl           ; save new handler address
+    push ix
+    pop  hl           ; HL = original handler address
+
+    ld   bc,8
+    ldir              ; copy 8 bytes from (HL) to (DE)
+
+    pop hl           ; restore handler
+
+    ld   a,0xC3       ; JP opcode
+    ld   (ix+0),a
+    ld   (ix+1),l       ; low byte of handler
+    ld   (ix+2),h       ; high byte of handler
+
     ret
 
 ; Restore original bytes
 _rst8_restore:
+
     ; Restore RST 08
+    di
+
+    ;bank 0
+    ld a, 0x80    
+    out (0xF0),a       ; switch to page 0
+
+    ld hl,orig_rst8_bytes_bank_0
+    ld de,0x0008
+    ld bc,8
+    ldir
+
+    ;bank 4
+    ld a, 0x84    
+    out (0xF0),a       ; switch to page 4
+
     ld hl,orig_rst8_bytes
     ld de,0x0008
     ld bc,8
     ldir
+
     ; Restore RST 38
-    di
     ld hl,orig_rst38_bytes
     ld de,0x0038
     ld bc,8
@@ -96,11 +161,39 @@ _rst8_restore:
     ei
     ret
 
+handleInterruptState:
+    push af
+
+    ; determine if interrupts are enabled or not so we can restore them later
+    ld a,i
+    di      ; disable them now we have captured the state 
+    jp PO, disabled ; odd parity = interrupts def not enabled
+
+    ;Executing LD A,I inside an ISR will place IFF2 (the pre‑interrupt enable state) into P/V, 
+    ;not the current IFF1 state. That means LD A,I can show “interrupts were enabled before this ISR” even though IFF1 is presently 0 (disabled) inside the ISR
+    ;so we need to see if we are in an ISR (we hooked this on setup) and if we are, we need to assume interrupts are currently disabled (they should be)
+    ; if _interrupt_depth is > 0 then interrupts are disabled and a should bet set to 1
+    ld a,(_interrupt_depth)
+    or a    
+    jp nz,disabled
+
+    inc a   ; set a to 1
+    jr enabled
+
+disabled:
+    xor a   ; set a to 0
+
+enabled:
+    ld (ints_enabled_flag),a  
+    call DISABLEINTS        ;clobbers af - disable ints 
+    pop af
+    ret
+
+
 ; After RST 08 hardware pushes return addr, we push AF BC DE HL IX IY
 rst8_entry:
 
-    call DISABLEINTS
-    di      ; good for stable debugging state 
+    call handleInterruptState ;leaves ints disabled
 
     ; save current SP for C (before we push anything else beyond our fixed set)
     ld (_rst8_sp_copy),sp
@@ -121,61 +214,52 @@ rst8_entry:
     pop hl
     pop de
     pop bc
-    pop af
-    ld sp, (_rst8_sp_copy)  ; return address will have been set in the C code
 
-    call ENABLEINTS
+    call ENABLEINTS ; clobbers af - enables SIO ints but leaves ints DISABLED!
+
+    ld a,(ints_enabled_flag)
+    or a
+    jp z, restore_stack_and_ret
 
     ei
+
+
+restore_stack_and_ret:
+    pop af
+    ld sp, (_rst8_sp_copy)  ; return address will have been set in the C code
     ret
 
 ; IM1 RST 38 hook: minimal, calls C DART ISR shim then chains to original RST38
 im1_entry:
 
     push af
-    ; gate on enable flag - MAYBE NOT NEEDED AS INTERRUPTS ARE DISABLED DURING RST8 OPERATIONS - but any BDOS calls (logging might re-enable them ?! - should not make these!)
+
+    ; interrupt_depth++
+    ld   a,(_interrupt_depth)
+    inc  a
+    ld   (_interrupt_depth),a
+
+    ; gate on enable flag
     ld a, (_enable_serial_interrupt)
     or a
     jr z, do_nothing
 
-    push bc
-
     ; Read DART status register (RR0)
     in a,(DART_CTRL)
-    ld b,a
     ; RX available?
-    bit 0,b
-    jr z, no_rx
+    bit 0,a
+    jr z, do_nothing
 
     ; Read received byte (clears Rx IRQ)
-;    ld a,1
-;    ld (_wasInterrupt),a
     in a,(DART_DATA)
-    ld c,a
-    ; Ctrl-C?
-    cp 0x03
-    jr nz, no_ctrl_c
+    cp 0x03 ; Ctrl-C?
+    jr nz, do_nothing
 
-    ; Skip if stepping / restoring
-    ;ld a,(gdbserver_trap_flags)
-    ;and STEPPING_MASK
-    ;jr nz, already_stepping
-
-
-    ;EXTERN NEXT 
-    EXTERN DISABLEINTS
-    ;PRINT_CHAR equ 2
-
-    ;push de
-    ;ld  e,'!'
-    ;mvi c,PRINT_CHAR
-    ;call NEXT  ; call the BDOS function
-    ;pop de
-    
-    call DISABLEINTS    ; disable further serial interrupts while we handle this one
+    ;turn off DTR to prevent remaining chars to be lost
+    call DISABLEINTS
 
     ;ignore further serial interrupts until we re-enable them in C code
-    ld a,0
+    xor a
     ld (_enable_serial_interrupt),a
 
     push hl
@@ -185,9 +269,9 @@ im1_entry:
     ld ix,0
     add ix,sp
     ; Load the word at SP+10 into HL. On a Z80 interrupt, the CPU pushes the return PC (low, high) at SP. 
-    ; ISR has since pushed 5 registers (AF, BC, HL, IX = 8 bytes), the original PC is now at SP+8. Hence L gets low byte at SP+8 and H gets high byte at SP+9, so HL = interrupted PC    
-    ld l,(ix+8)
-    ld h,(ix+9)
+    ; ISR has since pushed 5 registers (AF, HL, IX = 6 bytes), the original PC is now at SP+6. Hence L gets low byte at SP+6 and H gets high byte at SP+7, so HL = interrupted PC    
+    ld l,(ix+6)
+    ld h,(ix+7)
     pop ix
     ld (temporary_breakpoint),hl
 
@@ -204,32 +288,27 @@ im1_entry:
     or TRAP_FLAG_STEP_INSTRUCTION
     ld (gdbserver_trap_flags),a
 
- ;   jr no_rx
-
-
-  ; send "$E10#??" via __z88dk_fastcall: dart_putc(uint8_t ch)
-;    ld   de, gdb_busy
-;    ld   b, 7             ; 7 bytes to send
-;send:
-;    ld   a,(de)
-;    ld   l,a              ; fastcall: 8-bit arg in L
-;    call _dart_putc
-;    inc  de
-;    djnz send
-
-    ; else: drop non-^C bytes (do nothing)
-
-
-
-no_ctrl_c:
-already_stepping:
-no_rx:
-    pop bc
 do_nothing:
     pop af
+
+ ; Place isr_epilogue on stack as next return target, preserving HL
+    exx                  ; switch to alternate BC',DE',HL'
+    ld   hl, isr_epilogue
+    push hl              ; stack: [isr_epilogue][RET_PC]
+    exx                  ; restore primary BC,DE,HL
 
     ; CHAIN TO ORIGINAL HANDER
     jp orig_rst38_bytes
 
+isr_epilogue:
+    push AF                 ; save A and F as set by the original ISR
+
+    ; interrupt_depth--
+    ld   a,(_interrupt_depth)
+    dec  a
+    ld   (_interrupt_depth),a
+
+    pop  AF                 ; restore A and F
+    ret        
 
 ;gdb_busy: defb "$E10#A6"
